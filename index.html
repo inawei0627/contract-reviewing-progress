@@ -31,7 +31,6 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        <!-- 頂部數據看板 -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
             <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
                 <div class="p-3 bg-blue-50 text-blue-600 rounded-lg mr-4"><i class="fa-solid fa-list-check text-xl"></i></div>
@@ -64,11 +63,9 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- 左側列表區 -->
             <div class="lg:col-span-2 space-y-6">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     
-                    <!-- 表頭與新增的搜尋欄位 -->
                     <div class="p-5 border-b border-gray-100 space-y-4 bg-gray-50">
                         <div class="flex justify-between items-center">
                             <h2 class="font-bold text-gray-800 flex items-center">
@@ -77,7 +74,6 @@
                             <button onclick="fetchDataFromCloud()" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"><i class="fa-solid fa-arrows-rotate mr-1"></i> 手動整理</button>
                         </div>
                         
-                        <!-- 【新增功能 1】搜尋輸入框 -->
                         <div class="relative">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
                             <input type="text" id="search-input" oninput="filterDocuments()" placeholder="輸入申請人姓名、部門或主旨關鍵字進行智慧搜尋..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-400 shadow-sm bg-white">
@@ -105,9 +101,7 @@
                 </div>
             </div>
 
-            <!-- 右側操作與明細區 -->
             <div class="space-y-6">
-                <!-- 新增簽呈表單 (管理員專用) -->
                 <div id="admin-form-section" class="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-100 hidden">
                     <h2 class="font-bold text-gray-800 mb-4 flex items-center border-b pb-2">
                         <i class="fa-solid fa-feather-pointed mr-2 text-indigo-500"></i> 新增簽呈 (管理員專用)
@@ -137,7 +131,6 @@
                     </form>
                 </div>
 
-                <!-- 簽呈詳情面板 -->
                 <div id="detail-section" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
                     <div class="flex justify-between items-start border-b pb-3 mb-4">
                         <div>
@@ -152,23 +145,30 @@
                         <p><strong>事由：</strong><span id="detail-content">--</span></p>
                     </div>
 
-                    <!-- 管理員審核與【新增功能 2: 刪除】區塊 -->
                     <div id="admin-action-section" class="mb-5 p-3 bg-amber-50 rounded-lg border border-amber-200 hidden">
                         <p class="text-xs font-bold text-amber-800 mb-2"><i class="fa-solid fa-user-gear mr-1"></i> 管理員變更進度</p>
                         <div class="space-y-2 mb-3">
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="text" id="action-stage" placeholder="下個關卡 (如: 總經理)" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white">
-                                <input type="text" id="action-operator" placeholder="經辦人 (如: 張總)" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+                                <select id="action-stage" class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
+                                    <option value="" disabled selected>選擇下個關卡</option>
+                                    <option value="法務">法務</option>
+                                    <option value="會計部">會計部</option>
+                                    <option value="採購部">採購部</option>
+                                    <option value="副總">副總</option>
+                                    <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
+                                </select>
+                                
+                                <input type="datetime-local" id="action-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
                             </div>
-                            <input type="text" id="action-note" placeholder="簽核評語/意見" class="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white">
-                            <div class="flex gap-2">
-                                <button onclick="updateDocStatus('審核中')" class="flex-1 bg-amber-500 text-white text-xs py-1 rounded hover:bg-amber-600 transition">送下一關</button>
-                                <button onclick="updateDocStatus('已核准')" class="flex-1 bg-green-600 text-white text-xs py-1 rounded hover:bg-green-700 transition">核准結案</button>
-                                <button onclick="updateDocStatus('被駁回')" class="flex-1 bg-red-600 text-white text-xs py-1 rounded hover:bg-red-700 transition">駁回</button>
+                            <input type="text" id="action-note" placeholder="簽核評語/意見" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white">
+                            
+                            <div class="flex gap-2 pt-1">
+                                <button onclick="updateDocStatus('審核中')" class="flex-1 bg-amber-500 text-white text-xs py-1.5 font-medium rounded hover:bg-amber-600 transition">送下一關</button>
+                                <button onclick="updateDocStatus('已核准')" class="flex-1 bg-green-600 text-white text-xs py-1.5 font-medium rounded hover:bg-green-700 transition">核准結案</button>
+                                <button onclick="updateDocStatus('被駁回')" class="flex-1 bg-red-600 text-white text-xs py-1.5 font-medium rounded hover:bg-red-700 transition">駁回</button>
                             </div>
                         </div>
                         
-                        <!-- 【新增功能 2】刪除簽呈按紐 -->
                         <div class="border-t border-amber-200 pt-2 flex justify-end">
                             <button onclick="deleteDocumentFromCloud()" class="text-xs text-red-600 hover:text-red-800 font-semibold bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition flex items-center">
                                 <i class="fa-solid fa-trash-can mr-1"></i> 刪除此筆簽呈資料
@@ -183,7 +183,6 @@
         </div>
     </main>
 
-    <!-- 密碼登入彈窗 -->
     <div id="password-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 mx-4">
             <div class="flex items-center mb-4 text-indigo-600">
@@ -205,17 +204,31 @@
     </div>
 
     <script>
-        // 【重要設定】已填入你在 Supabase 取得的網址與金鑰
         const SUPABASE_URL = "https://arosasnpwfkaiaglocex.supabase.co";
         const SUPABASE_KEY = "sb_publishable_-LCdnK_X_Wh56tHtvWgx1g_-L20U16t";
         const ADMIN_PASSWORD = "admin123";
 
-        let allDocuments = [];       // 保存雲端拉下來的所有原資料
-        let filteredDocuments = [];  // 保存搜尋過後的篩選資料
+        let allDocuments = [];       
+        let filteredDocuments = [];  
         let isAdmin = false;
         let currentSelectedIndex = null;
 
-        // 從 Supabase 雲端讀取資料
+        // 輔助函式：取得目前時間格式化字串 (YYYY-MM-DD HH:MM)
+        function getFormattedTimeString(dateObj = new Date()) {
+            return `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')} ${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+        }
+
+        // 輔助函式：將本地時間填入 input[type="datetime-local"] 的正確格式
+        function setNowToDateTimeInput() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('action-date').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
         async function fetchDataFromCloud() {
             showLoading(true);
             try {
@@ -226,18 +239,12 @@
                     }
                 });
                 const dbData = await response.json();
-                
-                // 解析每筆資料
                 allDocuments = dbData.map(item => item.data).filter(Boolean);
-                
-                // 初始化時篩選資料等於原資料
                 filteredDocuments = [...allDocuments];
                 
                 renderSystem();
                 
-                // 保持當前選中項目的更新
                 if(currentSelectedIndex !== null) {
-                    // 重新在陣列中依 ID 找回項目索引
                     const currentDocId = document.getElementById('detail-id').innerText;
                     const newIndex = filteredDocuments.findIndex(d => d.id === currentDocId);
                     if (newIndex !== -1) showDetail(newIndex);
@@ -250,7 +257,6 @@
             }
         }
 
-        // 【新增功能 1 邏輯】搜尋過濾功能
         function filterDocuments() {
             const keyword = document.getElementById('search-input').value.trim().toLowerCase();
             if (!keyword) {
@@ -309,7 +315,10 @@
 
             if (isAdmin) {
                 formSection.classList.remove('hidden');
-                if(currentSelectedIndex !== null) actionSection.classList.remove('hidden');
+                if(currentSelectedIndex !== null) {
+                    actionSection.classList.remove('hidden');
+                    setNowToDateTimeInput(); // 登入時自動載入當前日期時間
+                }
                 authBtn.innerHTML = '<i class="fa-solid fa-lock-open mr-1"></i> 登出管理員';
                 authBtn.className = "text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition shadow-sm";
                 roleBadge.innerText = "最高管理員模式";
@@ -333,7 +342,6 @@
                 return;
             }
 
-            // 看板數據一律統計「雲端所有資料」
             let total = allDocuments.length, pending = 0, approved = 0, rejected = 0;
             allDocuments.forEach(doc => {
                 if (doc.status === '審核中') pending++;
@@ -341,7 +349,6 @@
                 else if (doc.status === '被駁回') rejected++;
             });
 
-            // 渲染畫面上經篩選後的資料
             filteredDocuments.forEach((doc, index) => {
                 let statusClass = "bg-amber-100 text-amber-800";
                 if (doc.status === '已核准') statusClass = "bg-green-100 text-green-800";
@@ -375,7 +382,11 @@
             if (!doc) return;
 
             document.getElementById('detail-section').classList.remove('hidden');
-            if(isAdmin) document.getElementById('admin-action-section').classList.remove('hidden');
+            if(isAdmin) {
+                document.getElementById('admin-action-section').classList.remove('hidden');
+                document.getElementById('action-stage').value = ""; // 重設選單
+                setNowToDateTimeInput(); // 每次切換簽呈自動刷新至當前最新時間
+            }
 
             document.getElementById('detail-id').innerText = doc.id;
             document.getElementById('detail-title').innerText = doc.title;
@@ -405,7 +416,6 @@
                             <span class="font-bold text-gray-700 text-sm">${event.stage}</span>
                             <span>${event.time}</span>
                         </div>
-                        <p class="text-xs text-gray-500">經辦人: <span class="font-medium text-gray-700">${event.operator}</span></p>
                         <p class="text-xs italic text-gray-500 mt-1 bg-gray-50 p-2 rounded border-l-2 border-gray-300">「 ${event.note} 」</p>
                     </div>
                 `;
@@ -413,7 +423,7 @@
             });
         }
 
-        // 新增簽呈上傳到 Supabase
+        // 新增簽呈
         document.getElementById('add-doc-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             if(!isAdmin) return;
@@ -427,16 +437,15 @@
             const dept = document.getElementById('form-dept').value;
             const content = document.getElementById('form-content').value;
 
-            const now = new Date();
-            const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-            const customId = `SIGN-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const timeString = getFormattedTimeString();
+            const customId = `SIGN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
             const newDoc = {
                 id: customId, title: title, applicant: applicant, dept: dept, content: content,
-                currentStep: "部門主管", status: "審危中", status: "審核中", updatedAt: timeString,
+                currentStep: "部門主管", status: "審核中", updatedAt: timeString,
                 history: [
-                    { time: timeString, stage: "填單送出", operator: `${applicant}(${dept})`, note: "新簽呈建立成功，送交主管審核。", status: "success" },
-                    { time: "目前關卡", stage: "部門主管審核", operator: "候審中", note: "等待主管簽核中...", status: "pending" }
+                    { time: timeString, stage: "填單送出", note: `新簽呈建立成功。申請人: ${applicant}(${dept})`, status: "success" },
+                    { time: "目前關卡", stage: "部門主管審核", note: "等待主管簽核中...", status: "pending" }
                 ]
             };
 
@@ -452,7 +461,6 @@
                     body: JSON.stringify({ data: newDoc })
                 });
                 this.reset();
-                // 清空搜尋條件讓使用者看到剛加的資料
                 document.getElementById('search-input').value = '';
                 currentSelectedIndex = 0;
                 await fetchDataFromCloud();
@@ -464,39 +472,57 @@
             }
         });
 
-        // 修改簽呈進度並更新 Supabase
+        // 修改簽呈進度 (送下一關 / 核准 / 駁回)
         async function updateDocStatus(targetStatus) {
             if(currentSelectedIndex === null || !isAdmin) return;
 
-            const stageInput = document.getElementById('action-stage').value.trim();
-            const operatorInput = document.getElementById('action-operator').value.trim();
+            const stageSelect = document.getElementById('action-stage').value;
+            const dateInput = document.getElementById('action-date').value;
             const noteInput = document.getElementById('action-note').value.trim();
 
-            if(!noteInput) { alert("請填寫簽核評語/意見！"); return; }
+            // 防呆驗證
+            if (targetStatus === '審核中' && !stageSelect) { 
+                alert("請從下拉選單選擇「下個關卡」！"); 
+                return; 
+            }
+            if (!noteInput) { 
+                alert("請填寫簽核評語/意見！"); 
+                return; 
+            }
 
             showLoading(true);
             const doc = filteredDocuments[currentSelectedIndex];
-            const now = new Date();
-            const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            
+            // 【核心修正】讀取手動載入的日期時間，若為空則抓系統目前時間
+            const chosenDate = dateInput ? new Date(dateInput) : new Date();
+            const timeString = getFormattedTimeString(chosenDate);
 
+            // 移除原本時間軸最後一個 pending (候審中) 的虛擬關卡
             if (doc.history.length > 0 && doc.history[doc.history.length - 1].status === 'pending') {
                 doc.history.pop(); 
             }
 
+            // 新增目前的進度到歷史紀錄
             doc.history.push({
                 time: timeString,
-                stage: targetStatus === '審核中' ? `已移交：${stageInput || '下個關卡'}` : targetStatus,
-                operator: operatorInput || "管理員",
+                stage: targetStatus === '審核中' ? `已移交：${stageSelect}` : `結案：${targetStatus}`,
                 note: noteInput,
                 status: targetStatus === '被駁回' ? 'error' : 'success'
             });
 
+            // 更新簽呈的主狀態與最後更新時間
             doc.status = targetStatus;
             doc.updatedAt = timeString;
             
             if (targetStatus === '審核中') {
-                doc.currentStep = stageInput || "未定關卡";
-                doc.history.push({ time: "目前關卡", stage: `${doc.currentStep}審核中`, operator: "候審中", note: "等待進一步處理...", status: "pending" });
+                doc.currentStep = stageSelect;
+                // 推入下一個關卡的 pending 提示
+                doc.history.push({ 
+                    time: "目前關卡", 
+                    stage: `${doc.currentStep}審核中`, 
+                    note: "等待進一步處理...", 
+                    status: "pending" 
+                });
             } else {
                 doc.currentStep = "已結案";
             }
@@ -513,7 +539,6 @@
                 });
                 
                 document.getElementById('action-stage').value = '';
-                document.getElementById('action-operator').value = '';
                 document.getElementById('action-note').value = '';
                 
                 await fetchDataFromCloud();
@@ -523,19 +548,16 @@
             }
         }
 
-        // 【新增功能 2 邏輯】從雲端刪除單筆簽呈
+        // 刪除簽呈
         async function deleteDocumentFromCloud() {
             if(currentSelectedIndex === null || !isAdmin) return;
             
             const doc = filteredDocuments[currentSelectedIndex];
-            
-            // 跳出二次確認彈窗，避免誤刪
             const isConfirmed = confirm(`⚠️ 警告：您確定要永久刪除「${doc.title}」這筆簽呈嗎？\n此動作刪除後將無法還原！`);
             if(!isConfirmed) return;
 
             showLoading(true);
             try {
-                // 利用 API DELETE 發送刪除語法，依據 data->>id 對應
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?data->>id=eq.${doc.id}`, {
                     method: 'DELETE',
                     headers: {
@@ -546,10 +568,8 @@
 
                 if(response.ok) {
                     alert("🗑️ 該簽呈已成功自雲端資料庫永久刪除。");
-                    // 隱藏詳細面板並重置選擇
                     document.getElementById('detail-section').classList.add('hidden');
                     currentSelectedIndex = null;
-                    // 重新抓取資料更新畫面
                     await fetchDataFromCloud();
                 } else {
                     throw new Error("刪除失敗");
@@ -562,7 +582,7 @@
             }
         }
 
-        // 初始化自動載入資料
+        // 初始化載入
         fetchDataFromCloud();
     </script>
 </body>
