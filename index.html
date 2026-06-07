@@ -125,7 +125,8 @@
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
                             <select id="form-current-step" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
-                                <option value="法務" selected>法務</option>
+                                <option value="部門主管" selected>部門主管</option>
+                                <option value="法務">法務</option>
                                 <option value="會計部">會計部</option>
                                 <option value="採購部">採購部</option>
                                 <option value="副總">副總</option>
@@ -163,6 +164,7 @@
                             <div class="grid grid-cols-2 gap-2">
                                 <select id="action-stage" class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
                                     <option value="" disabled selected>選擇下個關卡</option>
+                                    <option value="部門主管">部門主管</option>
                                     <option value="法務">法務</option>
                                     <option value="會計部">會計部</option>
                                     <option value="採購部">採購部</option>
@@ -238,6 +240,7 @@
             if (targetEl) targetEl.value = `${year}-${month}-${day}`;
         }
 
+        // 雲端資料讀取與安全防禦
         async function fetchDataFromCloud() {
             showLoading(true);
             try {
@@ -251,7 +254,7 @@
                 if (!response.ok) throw new Error("API 請求失敗");
                 
                 const dbData = await response.json();
-                if (Array.isArray(dbData)) {
+                if (Array.isArray(dbData) && dbData.length > 0) {
                     allDocuments = dbData.map(item => item.data).filter(Boolean);
                 } else {
                     allDocuments = [];
@@ -260,11 +263,20 @@
                 filteredDocuments = [...allDocuments];
                 renderSystem();
                 
+                // 檢查是否選取過且目前列表不為空
                 const detailIdEl = document.getElementById('detail-id');
-                if(currentSelectedIndex !== null && detailIdEl) {
+                if(currentSelectedIndex !== null && detailIdEl && filteredDocuments.length > 0) {
                     const currentDocId = detailIdEl.innerText;
-                    const newIndex = filteredDocuments.findIndex(d => d.id === currentDocId);
-                    if (newIndex !== -1) showDetail(newIndex);
+                    const newIndex = filteredDocuments.findIndex(d => d && d.id === currentDocId);
+                    if (newIndex !== -1) {
+                        showDetail(newIndex);
+                    } else {
+                        showDetail(0); // 找不到就預設顯示第一筆
+                    }
+                } else if (filteredDocuments.length > 0 && currentSelectedIndex === null) {
+                    // 初始化時如果右側沒點開過，預設不自動選取或可以選第一筆
+                } else if (filteredDocuments.length === 0) {
+                    document.getElementById('detail-section').classList.add('hidden');
                 }
             } catch (error) {
                 console.error("雲端讀取失敗:", error);
@@ -282,6 +294,7 @@
                 filteredDocuments = [...allDocuments];
             } else {
                 filteredDocuments = allDocuments.filter(doc => {
+                    if(!doc) return false;
                     return (
                         (doc.applicant && doc.applicant.toLowerCase().includes(keyword)) ||
                         (doc.dept && doc.dept.toLowerCase().includes(keyword)) ||
@@ -299,6 +312,7 @@
             if (loadingEl) loadingEl.style.display = show ? 'flex' : 'none';
         }
 
+        // 🌟 已修正：核心登入處理控制邏輯控制
         function handleAuthClick() {
             if (!isAdmin) {
                 document.getElementById('password-modal').style.display = 'flex';
@@ -311,7 +325,9 @@
             }
         }
 
-        function closePasswordModal() { document.getElementById('password-modal').style.display = 'none'; }
+        function closePasswordModal() { 
+            document.getElementById('password-modal').style.display = 'none'; 
+        }
 
         function verifyAdminPassword() {
             const inputPwd = document.getElementById('modal-password-input').value;
@@ -324,8 +340,14 @@
             }
         }
 
-        document.getElementById('modal-password-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') verifyAdminPassword();
+        // 綁定輸入框 Enter 鍵
+        document.addEventListener("DOMContentLoaded", function() {
+            const pwdInput = document.getElementById('modal-password-input');
+            if (pwdInput) {
+                pwdInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') verifyAdminPassword();
+                });
+            }
         });
 
         function updateAuthUI() {
@@ -360,7 +382,7 @@
             listBody.innerHTML = '';
             
             if(filteredDocuments.length === 0) {
-                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">查無對應簽呈資料。</td></tr>';
+                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前雲端無簽呈資料，請登入管理員建立第一筆。</td></tr>';
                 document.getElementById('count-total').innerText = 0;
                 document.getElementById('count-pending').innerText = 0;
                 document.getElementById('count-approved').innerText = 0;
@@ -370,12 +392,14 @@
 
             let total = allDocuments.length, pending = 0, approved = 0, rejected = 0;
             allDocuments.forEach(doc => {
+                if (!doc) return;
                 if (doc.status === '審核中') pending++;
                 else if (doc.status === '已核准') approved++;
                 else if (doc.status === '被駁回') rejected++;
             });
 
             filteredDocuments.forEach((doc, index) => {
+                if(!doc) return;
                 let statusClass = "bg-amber-100 text-amber-800";
                 if (doc.status === '已核准') statusClass = "bg-green-100 text-green-800";
                 if (doc.status === '被駁回') statusClass = "bg-red-100 text-red-800";
@@ -405,7 +429,13 @@
             document.getElementById('count-rejected').innerText = rejected;
         }
 
+        // 🌟 核心防護：加上 Null Check 安全機制，避免空資料時網頁崩潰
         function showDetail(index) {
+            if (filteredDocuments.length === 0 || filteredDocuments[index] === undefined) {
+                document.getElementById('detail-section').classList.add('hidden');
+                return;
+            }
+            
             currentSelectedIndex = index;
             const doc = filteredDocuments[index];
             if (!doc) return;
@@ -498,19 +528,19 @@
                     body: JSON.stringify({ data: newDoc })
                 });
                 this.reset();
-                document.getElementById('form-current-step').value = "法務"; 
+                document.getElementById('form-current-step').value = "部門主管"; 
                 document.getElementById('search-input').value = '';
                 currentSelectedIndex = 0;
                 await fetchDataFromCloud();
             } catch (error) {
                 alert("上傳雲端失敗，請稍後再試。");
-            } finally {
+            } {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> 發布新簽呈到雲端';
             }
         });
 
-        // 修改簽呈進度 (選填意見優化)
+        // 修改簽呈進度（已優化：意見欄改為真正的非必填選填項目）
         async function updateDocStatus(targetStatus) {
             if(currentSelectedIndex === null || !isAdmin) return;
 
@@ -523,7 +553,7 @@
                 return; 
             }
 
-            // 核心功能：若沒填意見，系統根據動作自動代入預設文字，使其變成「非必填」
+            // 核心優化：若意見欄留白，系統根據動作自動代入預設文字，使其變成「選填」
             if (!noteInput) {
                 if (targetStatus === '審核中') {
                     noteInput = `已移交：${stageSelect}進行審核。`;
@@ -536,6 +566,7 @@
 
             showLoading(true);
             const doc = filteredDocuments[currentSelectedIndex];
+            if(!doc) return;
             
             const chosenDate = dateInput ? new Date(dateInput) : new Date();
             const dateString = getFormattedDateString(chosenDate);
@@ -594,6 +625,7 @@
             if(currentSelectedIndex === null || !isAdmin) return;
             
             const doc = filteredDocuments[currentSelectedIndex];
+            if(!doc) return;
             const isConfirmed = confirm(`⚠️ 警告：您確定要永久刪除「${doc.title}」這筆簽呈嗎？\n此動作刪除後將無法還原！`);
             if(!isConfirmed) return;
 
@@ -623,6 +655,7 @@
             }
         }
 
+        // 初始化載入
         fetchDataFromCloud();
     </script>
 </body>
