@@ -482,18 +482,20 @@
 
         // 🚨 歷史時間軸渲染函數 (整合：是誰駁回、駁回意見、後台直接修正日期)
         function renderTimeline(doc) {
-           const container = document.getElementById('timelineContainer');
-    container.innerHTML = (doc.history || []).map((node, i) => `
-        <div class="relative">
-            <div class="absolute -left-[33px] w-4 h-4 rounded-full ${node.status === 'error' ? 'bg-red-500' : 'bg-blue-500'}"></div>
-            <div class="font-bold text-sm">${node.stage}</div>
-            ${isAdmin ? `
-                <input type="date" value="${node.time ? node.time.split(' ')[0] : ''}" 
-                       onchange="updateTimeline(${i}, this.value)" class="border p-1 text-xs w-full mt-1 bg-yellow-50 rounded">
-            ` : `<div class="text-xs text-gray-400 mt-1">${node.time ? node.time.split(' ')[0] : ''}</div>`}
-            <div class="text-sm bg-gray-50 p-2 mt-2 rounded">意見：${node.note || '無'}</div>
-        </div>
-    `).join('');
+            if (!doc) return;
+
+            const safeDocId = doc.id;
+            const timelineContainer = document.getElementById('timelineContainer');
+            if (!timelineContainer) return;
+            
+            timelineContainer.innerHTML = '';
+
+            // 支援 history 欄位或內建的 timeline 欄位
+            let timelineData = doc.history || doc.timeline || [];
+
+            if (!Array.isArray(timelineData) || timelineData.length === 0) {
+                timelineContainer.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
+                return;
             }
 
             timelineData.forEach((node, index) => {
@@ -567,12 +569,25 @@
         }
 
         // 🚨 核心 API：變更個別時間點並即時儲存至 Supabase
-        async function updateSingleTimelineTime(idx, dateVal) {
-    const d = documents[activeIndex];
-    // 只更新日期，保留原有的格式
-    d.history[idx].time = dateVal; 
-    await saveDoc(d);
-}
+        async function updateSingleTimelineTime(docId, timelineIndex, rawDateTimeInputValue) {
+            if (!docId || !rawDateTimeInputValue) return;
+
+            const cleanedDatabaseTimeStr = rawDateTimeInputValue.replace('T', ' ');
+
+            try {
+                const docIndex = documents.findIndex(d => d.id === docId);
+                if (docIndex === -1) throw new Error("快取中找不到該筆簽呈。");
+
+                let targetDocCopy = JSON.parse(JSON.stringify(documents[docIndex]));
+
+                // 精準覆蓋陣列中對應 index 的時間
+                if (targetDocCopy.history && targetDocCopy.history[timelineIndex]) {
+                    targetDocCopy.history[timelineIndex].time = cleanedDatabaseTimeStr;
+                } else if (targetDocCopy.timeline && targetDocCopy.timeline[timelineIndex]) {
+                    targetDocCopy.timeline[timelineIndex].time = cleanedDatabaseTimeStr;
+                } else {
+                    throw new Error("找不到對應的時間軸節點索引。");
+                }
 
                 // 移除外層主鍵屬性，確保 jsonb 資料乾淨
                 let cleanData = { ...targetDocCopy };
