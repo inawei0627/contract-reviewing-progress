@@ -125,8 +125,7 @@
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
                             <select id="form-current-step" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
-                                <option value="部門主管" selected>部門主管</option>
-                                <option value="法務">法務</option>
+                                <option value="法務" selected>法務</option>
                                 <option value="會計部">會計部</option>
                                 <option value="採購部">採購部</option>
                                 <option value="副總">副總</option>
@@ -164,7 +163,6 @@
                             <div class="grid grid-cols-2 gap-2">
                                 <select id="action-stage" class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
                                     <option value="" disabled selected>選擇下個關卡</option>
-                                    <option value="部門主管">部門主管</option>
                                     <option value="法務">法務</option>
                                     <option value="會計部">會計部</option>
                                     <option value="採購部">採購部</option>
@@ -240,7 +238,6 @@
             if (targetEl) targetEl.value = `${year}-${month}-${day}`;
         }
 
-        // 雲端資料讀取
         async function fetchDataFromCloud() {
             showLoading(true);
             try {
@@ -254,7 +251,7 @@
                 if (!response.ok) throw new Error("API 請求失敗");
                 
                 const dbData = await response.json();
-                if (Array.isArray(dbData) && dbData.length > 0) {
+                if (Array.isArray(dbData)) {
                     allDocuments = dbData.map(item => item.data).filter(Boolean);
                 } else {
                     allDocuments = [];
@@ -264,16 +261,10 @@
                 renderSystem();
                 
                 const detailIdEl = document.getElementById('detail-id');
-                if(currentSelectedIndex !== null && detailIdEl && filteredDocuments.length > 0) {
+                if(currentSelectedIndex !== null && detailIdEl) {
                     const currentDocId = detailIdEl.innerText;
-                    const newIndex = filteredDocuments.findIndex(d => d && d.id === currentDocId);
-                    if (newIndex !== -1) {
-                        showDetail(newIndex);
-                    } else {
-                        showDetail(0);
-                    }
-                } else if (filteredDocuments.length === 0) {
-                    document.getElementById('detail-section').classList.add('hidden');
+                    const newIndex = filteredDocuments.findIndex(d => d.id === currentDocId);
+                    if (newIndex !== -1) showDetail(newIndex);
                 }
             } catch (error) {
                 console.error("雲端讀取失敗:", error);
@@ -291,7 +282,6 @@
                 filteredDocuments = [...allDocuments];
             } else {
                 filteredDocuments = allDocuments.filter(doc => {
-                    if(!doc) return false;
                     return (
                         (doc.applicant && doc.applicant.toLowerCase().includes(keyword)) ||
                         (doc.dept && doc.dept.toLowerCase().includes(keyword)) ||
@@ -321,9 +311,7 @@
             }
         }
 
-        function closePasswordModal() { 
-            document.getElementById('password-modal').style.display = 'none'; 
-        }
+        function closePasswordModal() { document.getElementById('password-modal').style.display = 'none'; }
 
         function verifyAdminPassword() {
             const inputPwd = document.getElementById('modal-password-input').value;
@@ -336,13 +324,8 @@
             }
         }
 
-        document.addEventListener("DOMContentLoaded", function() {
-            const pwdInput = document.getElementById('modal-password-input');
-            if (pwdInput) {
-                pwdInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') verifyAdminPassword();
-                });
-            }
+        document.getElementById('modal-password-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') verifyAdminPassword();
         });
 
         function updateAuthUI() {
@@ -377,7 +360,7 @@
             listBody.innerHTML = '';
             
             if(filteredDocuments.length === 0) {
-                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前雲端無簽呈資料，請登入管理員建立第一筆。</td></tr>';
+                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">查無對應簽呈資料。</td></tr>';
                 document.getElementById('count-total').innerText = 0;
                 document.getElementById('count-pending').innerText = 0;
                 document.getElementById('count-approved').innerText = 0;
@@ -387,14 +370,12 @@
 
             let total = allDocuments.length, pending = 0, approved = 0, rejected = 0;
             allDocuments.forEach(doc => {
-                if (!doc) return;
                 if (doc.status === '審核中') pending++;
                 else if (doc.status === '已核准') approved++;
                 else if (doc.status === '被駁回') rejected++;
             });
 
             filteredDocuments.forEach((doc, index) => {
-                if(!doc) return;
                 let statusClass = "bg-amber-100 text-amber-800";
                 if (doc.status === '已核准') statusClass = "bg-green-100 text-green-800";
                 if (doc.status === '被駁回') statusClass = "bg-red-100 text-red-800";
@@ -425,11 +406,6 @@
         }
 
         function showDetail(index) {
-            if (filteredDocuments.length === 0 || filteredDocuments[index] === undefined) {
-                document.getElementById('detail-section').classList.add('hidden');
-                return;
-            }
-            
             currentSelectedIndex = index;
             const doc = filteredDocuments[index];
             if (!doc) return;
@@ -522,7 +498,7 @@
                     body: JSON.stringify({ data: newDoc })
                 });
                 this.reset();
-                document.getElementById('form-current-step').value = "部門主管"; 
+                document.getElementById('form-current-step').value = "法務"; 
                 document.getElementById('search-input').value = '';
                 currentSelectedIndex = 0;
                 await fetchDataFromCloud();
@@ -534,7 +510,7 @@
             }
         });
 
-        // 修改簽呈進度（🌟 已強化：時間軸自動帶入當前執行關卡之部門名稱，並保持意見為非必填）
+        // 修改簽呈進度 (選填意見優化)
         async function updateDocStatus(targetStatus) {
             if(currentSelectedIndex === null || !isAdmin) return;
 
@@ -547,24 +523,20 @@
                 return; 
             }
 
-            showLoading(true);
-            const doc = filteredDocuments[currentSelectedIndex];
-            if(!doc) return;
-
-            // 獲取當前這筆簽呈在被更改前的關卡名稱（即執行審核/駁回動作的部門）
-            const currentActingDepartment = doc.currentStep || "管理部";
-
-            // 如果意見欄留白，自動根據動作代入含有部門名稱的預設文字
+            // 核心功能：若沒填意見，系統根據動作自動代入預設文字，使其變成「非必填」
             if (!noteInput) {
                 if (targetStatus === '審核中') {
-                    noteInput = `經由 ${currentActingDepartment} 審核通過，已移交給 ${stageSelect} 進行下一階段審核。`;
+                    noteInput = `已移交：${stageSelect}進行審核。`;
                 } else if (targetStatus === '已核准') {
-                    noteInput = `經由 ${currentActingDepartment} 審核通過，同意並核准結案。`;
+                    noteInput = "同意，核准結案。";
                 } else if (targetStatus === '被駁回') {
-                    noteInput = `此簽呈已被 ${currentActingDepartment} 駁回，請根據退件關卡意見修正後重新送審。`;
+                    noteInput = "此簽呈已被駁回，請修正後重新送審。";
                 }
             }
 
+            showLoading(true);
+            const doc = filteredDocuments[currentSelectedIndex];
+            
             const chosenDate = dateInput ? new Date(dateInput) : new Date();
             const dateString = getFormattedDateString(chosenDate);
 
@@ -574,19 +546,9 @@
 
             if (!Array.isArray(doc.history)) doc.history = [];
 
-            // 核心調整：動態決定時間軸節點的標題名稱，主動附帶執行部門
-            let timelineStageTitle = "";
-            if (targetStatus === '審核中') {
-                timelineStageTitle = `已移交：${stageSelect} (由 ${currentActingDepartment} 轉送)`;
-            } else if (targetStatus === '已核准') {
-                timelineStageTitle = `結案：已核准 (由 ${currentActingDepartment} 核准)`;
-            } else if (targetStatus === '被駁回') {
-                timelineStageTitle = `結案：被駁回 (由 ${currentActingDepartment} 駁回)`;
-            }
-
             doc.history.push({
                 time: dateString,
-                stage: timelineStageTitle,
+                stage: targetStatus === '審核中' ? `已移交：${stageSelect}` : `結案：${targetStatus}`,
                 note: noteInput,
                 status: targetStatus === '被駁回' ? 'error' : 'success'
             });
@@ -632,7 +594,6 @@
             if(currentSelectedIndex === null || !isAdmin) return;
             
             const doc = filteredDocuments[currentSelectedIndex];
-            if(!doc) return;
             const isConfirmed = confirm(`⚠️ 警告：您確定要永久刪除「${doc.title}」這筆簽呈嗎？\n此動作刪除後將無法還原！`);
             if(!isConfirmed) return;
 
@@ -666,178 +627,3 @@
     </script>
 </body>
 </html>
-// =========================================================================
-// 1. 全域環境變數配置 (請根據您現有的實際名稱調整)
-// =========================================================================
-const SUPABASE_URL = "https://arosasnpwfkaiaglocex.supabase.co"; // 您的 Supabase 專案網址
-const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";                // 您的 Supabase Anon Key
-
-// 系統全域快取陣列，存放當前加載的所有簽呈資料
-let documents = []; 
-
-// 權限開關：是否為最高管理員模式 (true 顯示時間修改器，false 顯示純文字)
-let isAdmin = true; 
-
-
-// =========================================================================
-// 2. 歷史時間軸渲染函數 (已修正範本字串語法錯誤)
-// =========================================================================
-function renderTimeline(doc) {
-    // 取得 HTML 中的時間軸容器 (請確保網頁中有一個 <div id="timelineContainer"></div>)
-    const timelineContainer = document.getElementById('timelineContainer');
-    if (!timelineContainer) {
-        console.error("找不到 id='timelineContainer' 的 DOM 元素。");
-        return;
-    }
-    
-    // 清空現有內容
-    timelineContainer.innerHTML = '';
-
-    // 容錯機制：相容資料包在 doc.data.timeline 內，或是直接在最外層的結構
-    let timelineData = [];
-    if (doc.data && doc.data.timeline) {
-        timelineData = doc.data.timeline;
-    } else if (doc.timeline) {
-        timelineData = doc.timeline;
-    }
-
-    // 若無歷史歷程，顯示提示文字
-    if (!Array.isArray(timelineData) || timelineData.length === 0) {
-        timelineContainer.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
-        return;
-    }
-
-    // 遍歷所有簽核節點並建立 HTML 結構
-    timelineData.forEach((node, index) => {
-        const itemDiv = document.createElement('div');
-        // 採用與您設計稿相同的左線右圖垂直時間軸結構樣式
-        itemDiv.className = "flex gap-4 items-start relative pb-6"; 
-
-        // 🚨 處理 HTML5 datetime-local 的格式相容性
-        // 原資料庫格式通常為 "2026-06-07 23:04"，但 HTML 選擇器需要 "2026-06-07T23:04" (中間必須帶 T)
-        let formattedTimeForInput = node.time || '';
-        if (formattedTimeForInput.includes(' ') && !formattedTimeForInput.includes('T')) {
-            formattedTimeForInput = formattedTimeForInput.replace(' ', 'T');
-        }
-
-        // 🚨 關鍵管理員功能擴充：注意此處必須使用 反單引號 ` 來包裹樣板字串
-        let timeComponentHTML = '';
-        if (isAdmin) {
-            // 管理員後台模式：渲染成可點擊的 input 日期時間元件，並綁定即時變更事件
-            timeComponentHTML = `
-                <input type="datetime-local" 
-                       class="border border-gray-300 rounded px-2 py-1 text-sm bg-yellow-50 focus:bg-white text-gray-700 font-sans outline-none cursor-pointer transition-all shadow-sm"
-                       value="${formattedTimeForInput}" 
-                       onchange="updateSingleTimelineTime(${doc.id}, ${index}, this.value)">
-            `;
-        } else {
-            // 一般訪客或普通員工模式：僅顯示唯讀的靜態文字日期
-            timeComponentHTML = `<span class="text-gray-400 text-sm font-medium">${node.time || ''}</span>`;
-        }
-
-        // 節點狀態顏色視覺提示 (被駁回為紅點，其餘為綠點)
-        const isRejected = node.status === '被駁回' || (node.title && node.title.includes('被駁回'));
-        const dotColor = isRejected ? 'bg-red-500' : 'bg-green-500';
-
-        // 組合節點內部的 HTML 結構
-        itemDiv.innerHTML = `
-            <div class="flex flex-col items-center">
-                <div class="w-3 h-3 rounded-full ${dotColor} mt-1.5 z-10 shadow-sm"></div>
-                ${index < timelineData.length - 1 ? `<div class="w-0.5 bg-gray-200 absolute top-4 bottom-0 left-1.5"></div>` : ''}
-            </div>
-            
-            <div class="flex-1 bg-white p-3 rounded shadow-sm border border-gray-100">
-                <div class="flex justify-between items-center mb-1 gap-4">
-                    <span class="font-medium text-gray-700 text-base">${node.title || node.activity || '處理關卡'}</span>
-                    ${timeComponentHTML}
-                </div>
-                <div class="text-gray-500 text-sm bg-gray-50 p-2.5 rounded mt-1 border border-gray-100 italic">
-                    「 ${node.comment || node.評語 || '無詳細說明'} 」
-                </div>
-            </div>
-        `;
-
-        timelineContainer.appendChild(itemDiv);
-    });
-}
-
-
-// =========================================================================
-// 3. 核心 API 同步：修正時間軸中的個別單一節點時間，並 PATCH 回傳 Supabase
-// =========================================================================
-async function updateSingleTimelineTime(docId, timelineIndex, rawDateTimeInputValue) {
-    if (!rawDateTimeInputValue) return;
-
-    // 將 HTML5 的 'T' 字元格式，重新轉換回資料庫一致的空格標準格式 "YYYY-MM-DD HH:mm"
-    const cleanedDatabaseTimeStr = rawDateTimeInputValue.replace('T', ' ');
-
-    try {
-        // 1. 定位本地 cache 快取中的此筆簽呈資料索引
-        const docIndex = documents.findIndex(d => d.id === docId);
-        if (docIndex === -1) {
-            throw new Error("前端本機記憶體快取中找不到對應的簽呈物件。");
-        }
-
-        // 深拷貝當前物件，避免在非同步請求未完成前污染原始記憶體陣列
-        let targetDocCopy = JSON.parse(JSON.stringify(documents[docIndex]));
-
-        // 2. 依據結構定位，精準修改該索引節點下的 time 屬性值
-        if (targetDocCopy.data && targetDocCopy.data.timeline && targetDocCopy.data.timeline[timelineIndex]) {
-            targetDocCopy.data.timeline[timelineIndex].time = cleanedDatabaseTimeStr;
-        } else if (targetDocCopy.timeline && targetDocCopy.timeline[timelineIndex]) {
-            targetDocCopy.timeline[timelineIndex].time = cleanedDatabaseTimeStr;
-        } else {
-            throw new Error(`找不到時間軸上索引為 [${timelineIndex}] 的節點項目。`);
-        }
-
-        // 3. 根據您的 Supabase 資料表 (id, created_at, data) 架構打包 Payload 送出資料
-        let httpPayload = {};
-        if (targetDocCopy.data) {
-            httpPayload = { data: targetDocCopy.data };
-        } else {
-            httpPayload = { data: { ...targetDocCopy } };
-            delete httpPayload.data.id;
-            delete httpPayload.data.created_at;
-        }
-
-        // 4. 發送 RESTFUL PATCH 請求至 Supabase 進行篩選更新 (eq.docId)
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${docId}`, {
-            method: 'PATCH',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation' // 要求 Supabase 回傳修改成功後的最新整筆資料
-            },
-            body: JSON.stringify(httpPayload)
-        });
-
-        if (!response.ok) {
-            throw new Error(`Supabase API 回應失敗，HTTP 狀態碼: ${response.status}`);
-        }
-
-        const responseDataList = await response.json();
-        if (!responseDataList || responseDataList.length === 0) {
-            throw new Error("雲端更新成功但未成功回傳有效之代表更新紀錄。");
-        }
-
-        // 5. 將雲端回傳的最新 data 內容，覆蓋刷新本地端的 documents 暫存陣列
-        documents[docIndex] = {
-            id: docId,
-            created_at: documents[docIndex].created_at,
-            ...responseDataList[0].data
-        };
-
-        console.log(`[管理員修改成功] 簽呈 ID #${docId} 的第 ${timelineIndex + 1} 個節點時間已變更為: ${cleanedDatabaseTimeStr}`);
-
-    } catch (error) {
-        console.error("雲端時間軸同步修正失敗:", error);
-        alert("無法成功更新時間軸，錯誤原因: " + error.message);
-        
-        // 異常處理：發生錯誤時，還原輸入框的值
-        const fallbackDoc = documents.find(d => d.id === docId);
-        if (fallbackDoc) {
-            renderTimeline(fallbackDoc);
-        }
-    }
-}
