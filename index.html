@@ -666,3 +666,198 @@
     </script>
 </body>
 </html>
+// =========================================================================
+// 1. 全域變數與基本環境配置 (請根據您現有的環境調整變數名稱或金鑰)
+// =========================================================================
+const SUPABASE_URL = "https://arosasnpwfkaiaglocex.supabase.co"; // 您的 Supabase 專案網址
+const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";                // 您的 Supabase Anon Key
+
+// 系統全域快取陣列，存放當前加載的所有簽呈資料
+let documents = []; 
+
+// 權限開關：是否為最高管理員模式 (true 顯示時間修改器，false 顯示純文字)
+let isAdmin = true; 
+
+
+// =========================================================================
+// 2. 簽核歷程時間軸渲染函數 (修改此處以在管理員後台開放日期修正)
+// =========================================================================
+function renderTimeline(doc) {
+    // 取得 HTML 中的時間軸容器 (請確保網頁中有一個 <div id="timelineContainer"></div>)
+    const timelineContainer = document.getElementById('timelineContainer');
+    if (!timelineContainer) {
+        console.error("找不到 id='timelineContainer' 的 DOM 元素。");
+        return;
+    }
+    
+    // 清空現有內容
+    timelineContainer.innerHTML = '';
+
+    // 容錯機制：相容資料包在 .data 物件內，或是直接在最外層的結構
+    let timelineData = [];
+    if (doc.data && doc.data.timeline) {
+        timelineData = doc.data.timeline;
+    } else if (doc.timeline) {
+        timelineData = doc.timeline;
+    }
+
+    // 若無歷史歷程，顯示提示文字
+    if (!Array.isArray(timelineData) || timelineData.length === 0) {
+        timelineContainer.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
+        return;
+    }
+
+    // 遍歷所有簽核節點並建立 HTML 結構
+    timelineData.forEach((node, index) => {
+        const itemDiv = document.createElement('div');
+        // 採用與您設計稿相同的左線右圖垂直時間軸結構樣式 (可依您的 CSS 調整類名)
+        itemDiv.className = "flex gap-4 items-start relative pb-6"; 
+
+        // 🚨 處理 HTML5 datetime-local 的格式相容性
+        // 原資料庫格式通常為 "2026-06-07 23:04"，但 HTML 選擇器需要 "2026-06-07T23:04" (中間帶 T)
+        let formattedTimeForInput = node.time || '';
+        if (formattedTimeForInput.includes(' ') && !formattedTimeForInput.includes('T')) {
+            formattedTimeForInput = formattedTimeForInput.replace(' ', 'T');
+        }
+
+        // 🚨 關鍵管理員功能擴充：判斷權限決定輸出元件
+        let timeComponentHTML = '';
+        if (isAdmin) {
+            // 管理員後台模式：渲染成可點擊的 input 日期時間元件，並綁定即時變更事件
+            timeComponentHTML = `
+                <input type="datetime-local" 
+                       class="border border-gray-300 rounded px-2 py-1 text-sm bg-yellow-50 focus:bg-white text-gray-700 font-sans outline-none cursor-pointer transition-all shadow-sm"
+                       value="${formattedTimeForInput}" 
+                       onchange="updateSingleTimelineTime(${doc.id}, ${index}, this.value)">
+            `;
+        } else {
+            // 一般訪客或普通員工模式：僅顯示唯讀的靜態文字日期
+            timeComponentHTML = `<span class="text-gray-400 text-sm font-medium">${node.time || ''}</span>`;
+        }
+
+        // 節點狀態顏色視覺提示 (被駁回為紅點，其餘為綠點)
+        const isRejected = node.status === '被駁回' || (node.title && node.title.includes('被駁回'));
+        const dotColor = isRejected ? 'bg-red-500' : 'bg-green-500';
+
+        // 組合節點內部的 HTML 結構
+        itemDiv.innerHTML = `
+            <div class="flex flex-col items-center">
+                <div class="w-3 h-3 rounded-full ${dotColor} mt-1.5 z-10 shadow-sm"></div>
+                ${index < timelineData.length - 1 ? '<div class="w-0.5 bg-gray-200 absolute top-4 bottom-0 left-1.5"></div>' : ''}
+            </div>
+            
+            <div class="flex-1 bg-white p-3 rounded shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-1 gap-4">
+                    <span class="font-medium text-gray-700 text-base">${node.title || node.activity || '處理關卡'}</span>
+                    ${timeComponentHTML}
+                </div>
+                <div class="text-gray-500 text-sm bg-gray-50 p-2.5 rounded mt-1 border border-gray-100 italic">
+                    「 ${node.comment || node.評語 || '無詳細說明'} 」
+                </div>
+            </div>
+        `;
+
+        timelineContainer.appendChild(itemDiv);
+    });
+}
+
+
+// =========================================================================
+// 3. 核心 API 同步：修正時間軸中的個別單一節點時間，並 PATCH 回傳 Supabase
+// =========================================================================
+async function updateSingleTimelineTime(docId, timelineIndex, rawDateTimeInputValue) {
+    if (!rawDateTimeInputValue) return;
+
+    // 將 HTML5 的 'T' 字元格式，重新轉換回資料庫一致的空格標準格式 "YYYY-MM-DD HH:mm"
+    const cleanedDatabaseTimeStr = rawDateTimeInputValue.replace('T', ' ');
+
+    try {
+        // 1. 定位本地 cache 快取中的此筆簽呈資料索引
+        const docIndex = documents.findIndex(d => d.id === docId);
+        if (docIndex === -1) {
+            throw new Error("前端本機記憶體快取中找不到對應的簽呈物件。");
+        }
+
+        // 深拷貝當前物件，避免在非同步請求未完成前污染原始記憶體陣列
+        let targetDocCopy = JSON.parse(JSON.stringify(documents[docIndex]));
+
+        // 2. 依據結構定位，精準修改該索引節點下的 time 屬性值
+        if (targetDocCopy.data && targetDocCopy.data.timeline && targetDocCopy.data.timeline[timelineIndex]) {
+            targetDocCopy.data.timeline[timelineIndex].time = cleanedDatabaseTimeStr;
+        } else if (targetDocCopy.timeline && targetDocCopy.timeline[timelineIndex]) {
+            targetDocCopy.timeline[timelineIndex].time = cleanedDatabaseTimeStr;
+        } else {
+            throw new Error(`找不到時間軸上索引為 [${timelineIndex}] 的節點項目。`);
+        }
+
+        // 3. 根據您的 Supabase 資料表 (id, created_at, data) 架構打包 Payload 送出資料
+        // 如果原本是純內嵌在 data (jsonb) 中，我們只更新 data 欄位
+        let httpPayload = {};
+        if (targetDocCopy.data) {
+            httpPayload = { data: targetDocCopy.data };
+        } else {
+            // 如果原本是平面欄位，為了匹配 jsonb，我們將修改後的完整結構重新包裝丟給 data
+            httpPayload = { data: { ...targetDocCopy } };
+            delete httpPayload.data.id;
+            delete httpPayload.data.created_at;
+        }
+
+        // 4. 發送 RESTFUL PATCH 請求至 Supabase 進行篩選更新 (eq.docId)
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${docId}`, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation' // 要求 Supabase 回傳修改成功後的最新整筆資料
+            },
+            body: JSON.stringify(httpPayload)
+        });
+
+        // 阻斷非 2xx 的錯誤狀態碼
+        if (!response.ok) {
+            throw new Error(`Supabase API 回應失敗，HTTP 狀態碼: ${response.status}`);
+        }
+
+        const responseDataList = await response.json();
+        if (!responseDataList || responseDataList.length === 0) {
+            throw new Error("雲端更新成功但未成功回傳有效之代表更新紀錄。");
+        }
+
+        // 5. 將雲端回傳的最新 data 內容，覆蓋刷新本地端的 documents 暫存陣列
+        documents[docIndex] = {
+            id: docId,
+            created_at: documents[docIndex].created_at,
+            ...responseDataList[0].data
+        };
+
+        console.log(`[管理員修改成功] 簽呈 ID #${docId} 的第 ${timelineIndex + 1} 個節點時間已變更為: ${cleanedDatabaseTimeStr}`);
+        
+        // 選擇性功能：如果需要可以在成功後加上小型的 Toast 提示，若不需要彈窗打擾可將下一行註釋
+        // alert("時間軸修正成功！已自動儲存至雲端。");
+
+    } catch (error) {
+        console.error("雲端時間軸同步修正失敗:", error);
+        alert("無法成功更新時間軸，錯誤原因: " + error.message);
+        
+        // 異常處理：發生錯誤時，將原 documents 的未修改舊資料丟回去重新繪製，強制將輸入框還原回原值
+        const fallbackDoc = documents.find(d => d.id === docId);
+        if (fallbackDoc) {
+            renderTimeline(fallbackDoc);
+        }
+    }
+}
+
+
+// =========================================================================
+// 4. 系統對接說明 (請將此行整合進您的 showDetail 簽呈詳細展開函數中)
+// =========================================================================
+/*
+function showDetail(doc) {
+    // 您的其餘主旨、申請人詳細資訊呈現邏輯...
+    document.getElementById('detailTitle').innerText = doc.title || '';
+    
+    // 🚨 核心步驟：在此處直接呼叫此函數，帶入目前的簽呈物件，便會自動繪製出帶有後台修改功能的時間軸
+    renderTimeline(doc);
+}
+*/
