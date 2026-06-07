@@ -667,7 +667,7 @@
 </body>
 </html>
 // =========================================================================
-// 1. 全域變數與基本環境配置 (請根據您現有的環境調整變數名稱或金鑰)
+// 1. 全域環境變數配置 (請根據您現有的實際名稱調整)
 // =========================================================================
 const SUPABASE_URL = "https://arosasnpwfkaiaglocex.supabase.co"; // 您的 Supabase 專案網址
 const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";                // 您的 Supabase Anon Key
@@ -680,7 +680,7 @@ let isAdmin = true;
 
 
 // =========================================================================
-// 2. 簽核歷程時間軸渲染函數 (修改此處以在管理員後台開放日期修正)
+// 2. 歷史時間軸渲染函數 (已修正範本字串語法錯誤)
 // =========================================================================
 function renderTimeline(doc) {
     // 取得 HTML 中的時間軸容器 (請確保網頁中有一個 <div id="timelineContainer"></div>)
@@ -693,7 +693,7 @@ function renderTimeline(doc) {
     // 清空現有內容
     timelineContainer.innerHTML = '';
 
-    // 容錯機制：相容資料包在 .data 物件內，或是直接在最外層的結構
+    // 容錯機制：相容資料包在 doc.data.timeline 內，或是直接在最外層的結構
     let timelineData = [];
     if (doc.data && doc.data.timeline) {
         timelineData = doc.data.timeline;
@@ -710,17 +710,17 @@ function renderTimeline(doc) {
     // 遍歷所有簽核節點並建立 HTML 結構
     timelineData.forEach((node, index) => {
         const itemDiv = document.createElement('div');
-        // 採用與您設計稿相同的左線右圖垂直時間軸結構樣式 (可依您的 CSS 調整類名)
+        // 採用與您設計稿相同的左線右圖垂直時間軸結構樣式
         itemDiv.className = "flex gap-4 items-start relative pb-6"; 
 
         // 🚨 處理 HTML5 datetime-local 的格式相容性
-        // 原資料庫格式通常為 "2026-06-07 23:04"，但 HTML 選擇器需要 "2026-06-07T23:04" (中間帶 T)
+        // 原資料庫格式通常為 "2026-06-07 23:04"，但 HTML 選擇器需要 "2026-06-07T23:04" (中間必須帶 T)
         let formattedTimeForInput = node.time || '';
         if (formattedTimeForInput.includes(' ') && !formattedTimeForInput.includes('T')) {
             formattedTimeForInput = formattedTimeForInput.replace(' ', 'T');
         }
 
-        // 🚨 關鍵管理員功能擴充：判斷權限決定輸出元件
+        // 🚨 關鍵管理員功能擴充：注意此處必須使用 反單引號 ` 來包裹樣板字串
         let timeComponentHTML = '';
         if (isAdmin) {
             // 管理員後台模式：渲染成可點擊的 input 日期時間元件，並綁定即時變更事件
@@ -743,7 +743,7 @@ function renderTimeline(doc) {
         itemDiv.innerHTML = `
             <div class="flex flex-col items-center">
                 <div class="w-3 h-3 rounded-full ${dotColor} mt-1.5 z-10 shadow-sm"></div>
-                ${index < timelineData.length - 1 ? '<div class="w-0.5 bg-gray-200 absolute top-4 bottom-0 left-1.5"></div>' : ''}
+                ${index < timelineData.length - 1 ? `<div class="w-0.5 bg-gray-200 absolute top-4 bottom-0 left-1.5"></div>` : ''}
             </div>
             
             <div class="flex-1 bg-white p-3 rounded shadow-sm border border-gray-100">
@@ -791,12 +791,10 @@ async function updateSingleTimelineTime(docId, timelineIndex, rawDateTimeInputVa
         }
 
         // 3. 根據您的 Supabase 資料表 (id, created_at, data) 架構打包 Payload 送出資料
-        // 如果原本是純內嵌在 data (jsonb) 中，我們只更新 data 欄位
         let httpPayload = {};
         if (targetDocCopy.data) {
             httpPayload = { data: targetDocCopy.data };
         } else {
-            // 如果原本是平面欄位，為了匹配 jsonb，我們將修改後的完整結構重新包裝丟給 data
             httpPayload = { data: { ...targetDocCopy } };
             delete httpPayload.data.id;
             delete httpPayload.data.created_at;
@@ -814,7 +812,6 @@ async function updateSingleTimelineTime(docId, timelineIndex, rawDateTimeInputVa
             body: JSON.stringify(httpPayload)
         });
 
-        // 阻斷非 2xx 的錯誤狀態碼
         if (!response.ok) {
             throw new Error(`Supabase API 回應失敗，HTTP 狀態碼: ${response.status}`);
         }
@@ -832,32 +829,15 @@ async function updateSingleTimelineTime(docId, timelineIndex, rawDateTimeInputVa
         };
 
         console.log(`[管理員修改成功] 簽呈 ID #${docId} 的第 ${timelineIndex + 1} 個節點時間已變更為: ${cleanedDatabaseTimeStr}`);
-        
-        // 選擇性功能：如果需要可以在成功後加上小型的 Toast 提示，若不需要彈窗打擾可將下一行註釋
-        // alert("時間軸修正成功！已自動儲存至雲端。");
 
     } catch (error) {
         console.error("雲端時間軸同步修正失敗:", error);
         alert("無法成功更新時間軸，錯誤原因: " + error.message);
         
-        // 異常處理：發生錯誤時，將原 documents 的未修改舊資料丟回去重新繪製，強制將輸入框還原回原值
+        // 異常處理：發生錯誤時，還原輸入框的值
         const fallbackDoc = documents.find(d => d.id === docId);
         if (fallbackDoc) {
             renderTimeline(fallbackDoc);
         }
     }
 }
-
-
-// =========================================================================
-// 4. 系統對接說明 (請將此行整合進您的 showDetail 簽呈詳細展開函數中)
-// =========================================================================
-/*
-function showDetail(doc) {
-    // 您的其餘主旨、申請人詳細資訊呈現邏輯...
-    document.getElementById('detailTitle').innerText = doc.title || '';
-    
-    // 🚨 核心步驟：在此處直接呼叫此函數，帶入目前的簽呈物件，便會自動繪製出帶有後台修改功能的時間軸
-    renderTimeline(doc);
-}
-*/
