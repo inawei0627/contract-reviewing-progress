@@ -192,11 +192,11 @@
         let isAdmin = false;
         let currentSelectedIndex = null;
 
-        // 從 Supabase 雲端讀取資料
+       // 從 Supabase 雲端讀取資料
         async function fetchDataFromCloud() {
             showLoading(true);
             try {
-                // 讀取 documents 表格，並依 created_at 降冪排列 (最新的在上面)
+                // 讀取 documents 表格，並依 created_at 降冪排列
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?select=*&order=created_at.desc`, {
                     headers: {
                         "apikey": SUPABASE_KEY,
@@ -204,8 +204,9 @@
                     }
                 });
                 const dbData = await response.json();
-                // 解析每筆資料裡面的 data JSON
-                documents = dbData.map(item => item.data);
+                
+                // 【核心修正】從你畫面上的 data (jsonb) 欄位將整包簽呈資料解析出來
+                documents = dbData.map(item => item.data).filter(Boolean);
                 
                 renderSystem();
                 if(currentSelectedIndex !== null) showDetail(currentSelectedIndex);
@@ -372,7 +373,7 @@
             const content = document.getElementById('form-content').value;
 
             const now = new Date();
-            const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}::${String(now.getMinutes()).padStart(2,'0')}`;
+            const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
             const customId = `SIGN-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
             const newDoc = {
@@ -385,6 +386,7 @@
             };
 
             try {
+                // 【核心修正】將整包 newDoc 物件塞入你後台對應的 data 欄位中
                 await fetch(`${SUPABASE_URL}/rest/v1/documents`, {
                     method: 'POST',
                     headers: {
@@ -393,7 +395,7 @@
                         "Content-Type": "application/json",
                         "Prefer": "return=minimal"
                     },
-                    body: JSON.stringify({ id: customId, data: newDoc })
+                    body: JSON.stringify({ data: newDoc })
                 });
                 this.reset();
                 currentSelectedIndex = 0;
@@ -444,8 +446,8 @@
             }
 
             try {
-                // 利用 id 作為條件更新對應行的 data 欄位，標準採用變數組合
-                await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
+                // 【核心修正】利用 JSONB 內的 id 尋找並更新整包 data
+                await fetch(`${SUPABASE_URL}/rest/v1/documents?data->>id=eq.${doc.id}`, {
                     method: 'PATCH',
                     headers: {
                         "apikey": SUPABASE_KEY,
