@@ -240,7 +240,7 @@
             if (targetEl) targetEl.value = `${year}-${month}-${day}`;
         }
 
-        // 雲端資料讀取與安全防禦
+        // 雲端資料讀取
         async function fetchDataFromCloud() {
             showLoading(true);
             try {
@@ -263,7 +263,6 @@
                 filteredDocuments = [...allDocuments];
                 renderSystem();
                 
-                // 檢查是否選取過且目前列表不為空
                 const detailIdEl = document.getElementById('detail-id');
                 if(currentSelectedIndex !== null && detailIdEl && filteredDocuments.length > 0) {
                     const currentDocId = detailIdEl.innerText;
@@ -271,10 +270,8 @@
                     if (newIndex !== -1) {
                         showDetail(newIndex);
                     } else {
-                        showDetail(0); // 找不到就預設顯示第一筆
+                        showDetail(0);
                     }
-                } else if (filteredDocuments.length > 0 && currentSelectedIndex === null) {
-                    // 初始化時如果右側沒點開過，預設不自動選取或可以選第一筆
                 } else if (filteredDocuments.length === 0) {
                     document.getElementById('detail-section').classList.add('hidden');
                 }
@@ -312,7 +309,6 @@
             if (loadingEl) loadingEl.style.display = show ? 'flex' : 'none';
         }
 
-        // 🌟 已修正：核心登入處理控制邏輯控制
         function handleAuthClick() {
             if (!isAdmin) {
                 document.getElementById('password-modal').style.display = 'flex';
@@ -340,7 +336,6 @@
             }
         }
 
-        // 綁定輸入框 Enter 鍵
         document.addEventListener("DOMContentLoaded", function() {
             const pwdInput = document.getElementById('modal-password-input');
             if (pwdInput) {
@@ -429,7 +424,6 @@
             document.getElementById('count-rejected').innerText = rejected;
         }
 
-        // 🌟 核心防護：加上 Null Check 安全機制，避免空資料時網頁崩潰
         function showDetail(index) {
             if (filteredDocuments.length === 0 || filteredDocuments[index] === undefined) {
                 document.getElementById('detail-section').classList.add('hidden');
@@ -534,13 +528,13 @@
                 await fetchDataFromCloud();
             } catch (error) {
                 alert("上傳雲端失敗，請稍後再試。");
-            } {
+            } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> 發布新簽呈到雲端';
             }
         });
 
-        // 修改簽呈進度（已優化：意見欄改為真正的非必填選填項目）
+        // 修改簽呈進度（🌟 已強化：時間軸自動帶入當前執行關卡之部門名稱，並保持意見為非必填）
         async function updateDocStatus(targetStatus) {
             if(currentSelectedIndex === null || !isAdmin) return;
 
@@ -553,21 +547,24 @@
                 return; 
             }
 
-            // 核心優化：若意見欄留白，系統根據動作自動代入預設文字，使其變成「選填」
-            if (!noteInput) {
-                if (targetStatus === '審核中') {
-                    noteInput = `已移交：${stageSelect}進行審核。`;
-                } else if (targetStatus === '已核准') {
-                    noteInput = "同意，核准結案。";
-                } else if (targetStatus === '被駁回') {
-                    noteInput = "此簽呈已被駁回，請修正後重新送審。";
-                }
-            }
-
             showLoading(true);
             const doc = filteredDocuments[currentSelectedIndex];
             if(!doc) return;
-            
+
+            // 獲取當前這筆簽呈在被更改前的關卡名稱（即執行審核/駁回動作的部門）
+            const currentActingDepartment = doc.currentStep || "管理部";
+
+            // 如果意見欄留白，自動根據動作代入含有部門名稱的預設文字
+            if (!noteInput) {
+                if (targetStatus === '審核中') {
+                    noteInput = `經由 ${currentActingDepartment} 審核通過，已移交給 ${stageSelect} 進行下一階段審核。`;
+                } else if (targetStatus === '已核准') {
+                    noteInput = `經由 ${currentActingDepartment} 審核通過，同意並核准結案。`;
+                } else if (targetStatus === '被駁回') {
+                    noteInput = `此簽呈已被 ${currentActingDepartment} 駁回，請根據退件關卡意見修正後重新送審。`;
+                }
+            }
+
             const chosenDate = dateInput ? new Date(dateInput) : new Date();
             const dateString = getFormattedDateString(chosenDate);
 
@@ -577,9 +574,19 @@
 
             if (!Array.isArray(doc.history)) doc.history = [];
 
+            // 核心調整：動態決定時間軸節點的標題名稱，主動附帶執行部門
+            let timelineStageTitle = "";
+            if (targetStatus === '審核中') {
+                timelineStageTitle = `已移交：${stageSelect} (由 ${currentActingDepartment} 轉送)`;
+            } else if (targetStatus === '已核准') {
+                timelineStageTitle = `結案：已核准 (由 ${currentActingDepartment} 核准)`;
+            } else if (targetStatus === '被駁回') {
+                timelineStageTitle = `結案：被駁回 (由 ${currentActingDepartment} 駁回)`;
+            }
+
             doc.history.push({
                 time: dateString,
-                stage: targetStatus === '審核中' ? `已移交：${stageSelect}` : `結案：${targetStatus}`,
+                stage: timelineStageTitle,
                 note: noteInput,
                 status: targetStatus === '被駁回' ? 'error' : 'success'
             });
@@ -655,7 +662,6 @@
             }
         }
 
-        // 初始化載入
         fetchDataFromCloud();
     </script>
 </body>
