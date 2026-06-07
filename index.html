@@ -76,7 +76,7 @@
                         
                         <div class="relative">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
-                            <input type="text" id="search-input" oninput="filterDocuments()" placeholder="輸入申請人姓名、部門或主旨關鍵字進行智慧搜尋..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-400 shadow-sm bg-white">
+                            <input type="text" id="search-input" oninput="filterDocuments()" placeholder="輸入申請人、部門、主旨或「內容說明」關鍵字搜尋..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-400 shadow-sm bg-white">
                         </div>
                     </div>
                     
@@ -84,7 +84,7 @@
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-gray-100 text-gray-600 text-xs uppercase font-semibold">
-                                    <th class="px-6 py-3">編號 / 主旨</th>
+                                    <th class="px-6 py-3 w-1/2">編號 / 主旨 / 內容說明</th>
                                     <th class="px-6 py-3">申請人</th>
                                     <th class="px-6 py-3">當前關卡</th>
                                     <th class="px-6 py-3">狀態</th>
@@ -125,8 +125,7 @@
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
                             <select id="form-current-step" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
-                                <option value="部門主管" selected>部門主管</option>
-                                <option value="法務">法務</option>
+                                <option value="法務" selected>法務</option>
                                 <option value="會計部">會計部</option>
                                 <option value="採購部">採購部</option>
                                 <option value="副總">副總</option>
@@ -255,7 +254,6 @@
                 
                 const dbData = await response.json();
                 
-                // 【防錯最佳化】確保 dbData 是陣列，避免空資料庫時解構出錯
                 if (Array.isArray(dbData)) {
                     allDocuments = dbData.map(item => item.data).filter(Boolean);
                 } else {
@@ -265,7 +263,6 @@
                 filteredDocuments = [...allDocuments];
                 renderSystem();
                 
-                // 【安全讀取修正】防止因讀取 innerText 導致崩潰
                 const detailIdEl = document.getElementById('detail-id');
                 if(currentSelectedIndex !== null && detailIdEl) {
                     const currentDocId = detailIdEl.innerText;
@@ -274,7 +271,6 @@
                 }
             } catch (error) {
                 console.error("雲端讀取失敗:", error);
-                // 資料庫全新完全沒資料時，不彈出煩人報錯視窗，優雅地顯示空白看板
                 allDocuments = [];
                 filteredDocuments = [];
                 renderSystem();
@@ -283,6 +279,7 @@
             }
         }
 
+        // 升級智慧搜尋：擴大包含到內容說明 (content)
         function filterDocuments() {
             const keyword = document.getElementById('search-input').value.trim().toLowerCase();
             if (!keyword) {
@@ -293,7 +290,8 @@
                         (doc.applicant && doc.applicant.toLowerCase().includes(keyword)) ||
                         (doc.dept && doc.dept.toLowerCase().includes(keyword)) ||
                         (doc.title && doc.title.toLowerCase().includes(keyword)) ||
-                        (doc.id && doc.id.toLowerCase().includes(keyword))
+                        (doc.id && doc.id.toLowerCase().includes(keyword)) ||
+                        (doc.content && doc.content.toLowerCase().includes(keyword))
                     );
                 });
             }
@@ -360,13 +358,14 @@
             }
         }
 
+        // 升級總表渲染：欄位新增內容說明 (content) 預覽
         function renderSystem() {
             const listBody = document.getElementById('document-list-body');
             if (!listBody) return;
             listBody.innerHTML = '';
             
             if(filteredDocuments.length === 0) {
-                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前雲端尚無簽呈資料，請登入管理員建立第一筆！</td></tr>';
+                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">查無對應簽呈資料。</td></tr>';
                 document.getElementById('count-total').innerText = 0;
                 document.getElementById('count-pending').innerText = 0;
                 document.getElementById('count-approved').innerText = 0;
@@ -386,13 +385,16 @@
                 if (doc.status === '已核准') statusClass = "bg-green-100 text-green-800";
                 if (doc.status === '被駁回') statusClass = "bg-red-100 text-red-800";
 
+                const displayContent = doc.content ? doc.content : "無詳細說明";
+
                 const tr = document.createElement('tr');
                 tr.className = `hover:bg-indigo-50/50 cursor-pointer transition ${currentSelectedIndex === index ? 'bg-indigo-50' : ''}`;
                 tr.onclick = () => showDetail(index);
                 tr.innerHTML = `
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 max-w-xs">
                         <div class="font-mono text-xs text-gray-400">${doc.id || ''}</div>
-                        <div class="font-medium text-gray-900">${doc.title || ''}</div>
+                        <div class="font-medium text-gray-900 truncate">${doc.title || ''}</div>
+                        <div class="text-xs text-gray-400 mt-1 bg-gray-50 p-1.5 rounded border-l border-gray-300 line-clamp-2">${displayContent}</div>
                     </td>
                     <td class="px-6 py-4 text-gray-600">${doc.applicant || ''}<br><span class="text-xs text-gray-400">${doc.dept || ''}</span></td>
                     <td class="px-6 py-4 font-medium text-gray-700">${doc.currentStep || ''}</td>
@@ -472,13 +474,12 @@
             const title = document.getElementById('form-title').value;
             const applicant = document.getElementById('form-applicant').value;
             const dept = document.getElementById('form-dept').value;
-            const currentStep = document.getElementById('form-current-step').value; // 【新欄位讀取】
+            const currentStep = document.getElementById('form-current-step').value; 
             const content = document.getElementById('form-content').value;
 
             const dateString = getFormattedDateString();
             const customId = `SIGN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-            // 【新欄位整合】建立簽呈時，將初始當前關卡設為管理員選擇的值
             const newDoc = {
                 id: customId, title: title, applicant: applicant, dept: dept, content: content,
                 currentStep: currentStep, status: "審核中", updatedAt: dateString,
@@ -500,7 +501,7 @@
                     body: JSON.stringify({ data: newDoc })
                 });
                 this.reset();
-                document.getElementById('form-current-step').value = "部門主管"; // 恢復預設值
+                document.getElementById('form-current-step').value = "法務"; // 恢復新的法務預設值
                 document.getElementById('search-input').value = '';
                 currentSelectedIndex = 0;
                 await fetchDataFromCloud();
