@@ -164,17 +164,24 @@
                             <div class="grid grid-cols-2 gap-2">
                                 <select id="action-stage" class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
                                     <option value="" disabled selected>選擇下個關卡</option>
-                                    <option value="部門主管">部門主管</option>
-                                    <option value="法務">法務</option>
+                                     <option value="法務">法務</option>
                                     <option value="會計部">會計部</option>
                                     <option value="採購部">採購部</option>
                                     <option value="副總">副總</option>
                                     <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
+<option value="重新送件">重新送件</option>
                                 </select>
                                 
                                 <input type="date" id="action-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
                             </div>
                             <input type="text" id="action-note" placeholder="簽核評語/意見、駁回理由 (選填)" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white">
+<div id="resubmit-box" style="display:none">
+    <input type="text" id="action-resubmit-note"
+    placeholder="重新送件說明（修正內容，例如：補資料 / 修正金額）"
+    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white mt-2">
+</div>
+placeholder="重新送件說明（修正內容，例如：補資料 / 修正金額）"
+class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white mt-2">
                             
                             <div class="flex gap-2 pt-1">
                                 <button onclick="updateDocStatus('審核中')" class="flex-1 bg-amber-500 text-white text-xs py-1.5 font-medium rounded hover:bg-amber-600 transition">送下一關</button>
@@ -699,7 +706,39 @@ const newDoc = {
             const dateInput = document.getElementById('action-date').value;
             let noteInput = document.getElementById('action-note').value.trim();
 
-            if (targetStatus === '審核中' && !stageSelect) { 
+async function updateDocStatus(targetStatus) {
+
+    const stageSelect = document.getElementById('action-stage').value;
+    const resubmitNote = document.getElementById('action-resubmit-note')?.value?.trim();
+
+if (stageSelect === "重新送件") {
+
+    const doc = filteredDocuments[currentSelectedIndex];
+    if (!doc) return;
+
+    doc.status = "審核中";
+
+    doc.history.push({
+        time: getFormattedDateString(new Date()),
+        stage: "🔁 重新送件",
+        note: resubmitNote || "已修正並重新送件",
+        status: "success"
+    });
+
+    doc.history.push({
+        time: getFormattedDateString(new Date()),
+        stage: `${doc.currentStep}審核中`,
+        note: "重新送件後進入審核流程",
+        status: "pending"
+    });
+
+    // ❗不改 currentStep（維持原關卡）
+    
+    await saveToCloud(doc); // 你原本 PATCH
+    return;
+}
+            
+if (targetStatus === '審核中' && !stageSelect) { 
                 alert("請從下拉選單選擇「下個關卡」！"); 
                 return; 
             }
@@ -748,6 +787,13 @@ const newDoc = {
                 status: targetStatus === '被駁回' ? 'error' : 'success'
             });
 
+doc.history.push({
+    time: getFormattedDateString(new Date()),
+    stage: "❌ 駁回",
+    note: noteInput || "未填原因",
+    status: "error"
+});
+
             doc.status = targetStatus;
             doc.updatedAt = getFormattedDateString(chosenDate);
             
@@ -760,7 +806,9 @@ const newDoc = {
                     status: "pending" 
                 });
             } else {
-                doc.currentStep = "已結案";
+               if (targetStatus === "被駁回") {
+    doc.status = "審核中";   // ❗關鍵：不要結案
+    doc.currentStep = doc.currentStep; // 留在原關卡
             }
 
             // 整理資料包回 data 欄位
@@ -829,3 +877,16 @@ const newDoc = {
     </script>
 </body>
 </html>
+document.getElementById('action-stage').addEventListener('change', function () {
+    const box = document.getElementById('resubmit-box');
+
+    if (this.value === "重新送件") {
+        box.style.display = "block";
+    } else {
+        box.style.display = "none";
+
+        // 清空避免殘留資料
+        const input = document.getElementById('action-resubmit-note');
+        if (input) input.value = "";
+    }
+});
