@@ -175,15 +175,23 @@
                                 <input type="date" id="action-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
                             </div>
                             <input type="text" id="action-note" placeholder="簽核評語/意見、駁回理由 (選填)" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white">
-<div id="resubmit-box" style="display:none">
+<div id="resubmit-box" style="display:none" class="mt-2">
     <input type="text" id="action-resubmit-note"
-    placeholder="重新送件說明（修正內容，例如：補資料 / 修正金額）"
-    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white mt-2">
+           placeholder="重新送件說明"
+           class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white">
+
+    <div class="flex gap-2 pt-2">
+        <button onclick="updateDocStatus('審核中')" class="flex-1 bg-amber-500 text-white text-xs py-1.5 font-medium rounded hover:bg-amber-600 transition">
+            送下一關
+        </button>
+        <button onclick="updateDocStatus('已核准')" class="flex-1 bg-green-600 text-white text-xs py-1.5 font-medium rounded hover:bg-green-700 transition">
+            核准結案
+        </button>
+        <button onclick="updateDocStatus('被駁回')" class="flex-1 bg-red-600 text-white text-xs py-1.5 font-medium rounded hover:bg-red-700 transition">
+            駁回
+        </button>
+    </div>
 </div>
-placeholder="重新送件說明（修正內容，例如：補資料 / 修正金額）"
-class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white mt-2">
-                            
-                            <div class="flex gap-2 pt-1">
                                 <button onclick="updateDocStatus('審核中')" class="flex-1 bg-amber-500 text-white text-xs py-1.5 font-medium rounded hover:bg-amber-600 transition">送下一關</button>
                                 <button onclick="updateDocStatus('已核准')" class="flex-1 bg-green-600 text-white text-xs py-1.5 font-medium rounded hover:bg-green-700 transition">核准結案</button>
                                 <button onclick="updateDocStatus('被駁回')" class="flex-1 bg-red-600 text-white text-xs py-1.5 font-medium rounded hover:bg-red-700 transition">駁回</button>
@@ -510,7 +518,7 @@ class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white mt-2">
                 itemDiv.className = "flex gap-4 items-start relative pb-6"; 
 
                 // 修正 HTML5 datetime-local 的 T 格式問題
-let formattedTimeForInput = node.time || '';
+let formattedTimeForInput = (node.time || '').split(' ')[0];
 
                 // 判斷是否為駁回狀態
                 const isRejected = node.status === 'error' || 
@@ -606,7 +614,7 @@ let formattedTimeForInput = node.time || '';
                         "Content-Type": "application/json",
                         "Prefer": "return=representation"
                     },
-                    body: JSON.stringify({ data: cleanData })
+                    body: JSON.stringify(cleanData)
                 });
 
                 if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
@@ -695,188 +703,142 @@ const newDoc = {
                 await fetchDataFromCloud();
             } catch (error) {
                 alert("上傳雲端失敗，請稍後再試。");
-            } submtBtn.disabled = false;
+            submitBtn.disabled = false;
+submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> 發布新簽呈到雲端';
         });
 
         // 審核狀態流轉 (駁回時加註目前部門關卡)
         async function updateDocStatus(targetStatus) {
-            if(currentSelectedIndex === null || !isAdmin) return;
-
-            const stageSelect = document.getElementById('action-stage').value;
-            const dateInput = document.getElementById('action-date').value;
-            let noteInput = document.getElementById('action-note').value.trim();
-
-async function updateDocStatus(targetStatus) {
+    if (currentSelectedIndex === null || !isAdmin) return;
 
     const stageSelect = document.getElementById('action-stage').value;
+    const dateInput = document.getElementById('action-date').value;
+    const noteInput = document.getElementById('action-note').value.trim();
     const resubmitNote = document.getElementById('action-resubmit-note')?.value?.trim();
-
-if (stageSelect === "重新送件") {
 
     const doc = filteredDocuments[currentSelectedIndex];
     if (!doc) return;
 
-    doc.status = "審核中";
+    showLoading(true);
 
+    // =========================
+    // 🔁 重新送件邏輯（獨立流程）
+    // =========================
+    if (stageSelect === "重新送件") {
+
+        if (!Array.isArray(doc.history)) doc.history = [];
+
+        doc.status = "審核中";
+
+        doc.history.push({
+            time: getFormattedDateString(new Date()),
+            stage: "🔁 重新送件",
+            note: resubmitNote || "已修正並重新送件",
+            status: "success"
+        });
+
+        doc.history.push({
+            time: getFormattedDateString(new Date()),
+            stage: `${doc.currentStep} 重新審核`,
+            note: "重新送件後進入審核流程",
+            status: "pending"
+        });
+
+        await saveToCloud(doc);
+        await fetchDataFromCloud();
+
+        showLoading(false);
+        return;
+    }
+
+    // =========================
+    // 一般流程驗證
+    // =========================
+    if (targetStatus === '審核中' && !stageSelect) {
+        alert("請選擇下一關卡");
+        showLoading(false);
+        return;
+    }
+
+    const docCopy = doc;
+    const currentDept = docCopy.currentStep || "部門";
+
+    let finalNote = noteInput;
+
+    if (!finalNote) {
+        if (targetStatus === '審核中') {
+            finalNote = `由 ${currentDept} 審核後移交至 ${stageSelect}`;
+        } else if (targetStatus === '已核准') {
+            finalNote = `由 ${currentDept} 核准結案`;
+        } else if (targetStatus === '被駁回') {
+            finalNote = `由 ${currentDept} 駁回，請修正後重新送件`;
+        }
+    }
+
+    const chosenDate = dateInput ? new Date(dateInput) : new Date();
+    const dateString = getFormattedDateString(chosenDate);
+
+    // =========================
+    // 更新基本狀態
+    // =========================
+    doc.status = targetStatus;
+    doc.updatedAt = dateString;
+
+    if (!Array.isArray(doc.history)) doc.history = [];
+
+    // =========================
+    // 歷程紀錄
+    // =========================
     doc.history.push({
-        time: getFormattedDateString(new Date()),
-        stage: "🔁 重新送件",
-        note: resubmitNote || "已修正並重新送件",
-        status: "success"
+        time: dateString,
+        stage: targetStatus,
+        note: finalNote,
+        status: targetStatus === "被駁回" ? "error" : "success"
     });
 
-    doc.history.push({
-        time: getFormattedDateString(new Date()),
-        stage: `${doc.currentStep}審核中`,
-        note: "重新送件後進入審核流程",
-        status: "pending"
-    });
+    // 下一關流程
+    if (targetStatus === '審核中') {
+        doc.currentStep = stageSelect;
 
-    // ❗不改 currentStep（維持原關卡）
-    
-    await saveToCloud(doc); // 你原本 PATCH
-    return;
+        doc.history.push({
+            time: dateString,
+            stage: `${stageSelect}審核中`,
+            note: "等待處理",
+            status: "pending"
+        });
+    }
+
+    // =========================
+    // 上傳 Supabase
+    // =========================
+    try {
+        const cleanData = { ...doc };
+        delete cleanData.id;
+        delete cleanData.created_at;
+
+        await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
+            method: 'PATCH',
+            headers: {
+                "apikey": SUPABASE_KEY,
+                "Authorization": `Bearer ${SUPABASE_KEY}`,
+                "Content-Type": "application/json"
+            },
+           body: JSON.stringify(cleanData)
+        });
+
+        await fetchDataFromCloud();
+
+    } catch (err) {
+        console.error(err);
+        alert("更新失敗，請檢查 Supabase 設定");
+    }
+
+    showLoading(false);
 }
-            
-if (targetStatus === '審核中' && !stageSelect) { 
-                alert("請從下拉選單選擇「下個關卡」！"); 
-                return; 
-            }
-
-            showLoading(true);
-            const doc = filteredDocuments[currentSelectedIndex];
-            if(!doc) return;
-
-            // 抓取當前進行簽核動作的部門名稱
-            const currentActingDepartment = doc.currentStep || "相關部門";
-
-            // 意見欄選填預設文字優化
-            if (!noteInput) {
-                if (targetStatus === '審核中') {
-                    noteInput = `經由 ${currentActingDepartment} 審核通過，已移交給 ${stageSelect}。`;
-                } else if (targetStatus === '已核准') {
-                    noteInput = `經由 ${currentActingDepartment} 審核通過，核准結案。`;
-                } else if (targetStatus === '被駁回') {
-                    noteInput = `此簽呈已被 ${currentActingDepartment} 駁回，請修正後重新送審。`;
-                }
-            }
-
-            const chosenDate = dateInput ? new Date(dateInput) : new Date();
-            const dateString = getFormattedDateString(chosenDate) + " 12:00";
-
-            if (Array.isArray(doc.history) && doc.history.length > 0 && doc.history[doc.history.length - 1].status === 'pending') {
-                doc.history.pop(); 
-            }
-
-            if (!Array.isArray(doc.history)) doc.history = [];
-
-            // 核心調整：動態決定歷史節點名稱，加上是誰辦理的
-            let timelineStageTitle = "";
-            if (targetStatus === '審核中') {
-                timelineStageTitle = `已移交：${stageSelect} (由 ${currentActingDepartment} 審核)`;
-            } else if (targetStatus === '已核准') {
-                timelineStageTitle = `結案：已核准 (由 ${currentActingDepartment} 核准)`;
-            } else if (targetStatus === '被駁回') {
-                timelineStageTitle = `結案：被駁回 (由 ${currentActingDepartment} 駁回)`;
-            }
-
-            doc.history.push({
-                time: dateString,
-                stage: timelineStageTitle,
-                note: noteInput,
-                status: targetStatus === '被駁回' ? 'error' : 'success'
-            });
-
-doc.history.push({
-    time: getFormattedDateString(new Date()),
-    stage: "❌ 駁回",
-    note: noteInput || "未填原因",
-    status: "error"
-});
-
-            doc.status = targetStatus;
-            doc.updatedAt = getFormattedDateString(chosenDate);
-            
-            if (targetStatus === '審核中') {
-                doc.currentStep = stageSelect;
-                doc.history.push({ 
-                    time: doc.updatedAt + " 12:01", 
-                    stage: `${doc.currentStep}審核中`, 
-                    note: "等待進一步處理...", 
-                    status: "pending" 
-                });
-            } else {
-               if (targetStatus === "被駁回") {
-    doc.status = "審核中";   // ❗關鍵：不要結案
-    doc.currentStep = doc.currentStep; // 留在原關卡
-            }
-
-            // 整理資料包回 data 欄位
-            let cleanData = { ...doc };
-            delete cleanData.id;
-            delete cleanData.created_at;
-
-            try {
-                await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
-                    method: 'PATCH',
-                    headers: {
-                        "apikey": SUPABASE_KEY,
-                        "Authorization": `Bearer ${SUPABASE_KEY}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ data: cleanData })
-                });
-                
-                document.getElementById('action-stage').value = '';
-                document.getElementById('action-note').value = '';
-                
-                await fetchDataFromCloud();
-            } catch (error) {
-                alert("同步進度到雲端失敗。");
-                showLoading(false);
-            }
-        }
-
-        // 刪除簽呈
-        async function deleteDocumentFromCloud() {
-            if(currentSelectedIndex === null || !isAdmin) return;
-            
-            const doc = filteredDocuments[currentSelectedIndex];
-            if(!doc) return;
-            const isConfirmed = confirm(`⚠️ 警告：您確定要永久刪除「${doc.title}」這筆簽呈嗎？\n此動作刪除後將無法還原！`);
-            if(!isConfirmed) return;
-
-            showLoading(true);
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        "apikey": SUPABASE_KEY,
-                        "Authorization": `Bearer ${SUPABASE_KEY}`
-                    }
-                });
-
-                if(response.ok) {
-                    alert("🗑️ 該簽呈已成功自雲端資料庫永久刪除。");
-                    document.getElementById('detail-section').classList.add('hidden');
-                    currentSelectedIndex = null;
-                    await fetchDataFromCloud();
-                } else {
-                    throw new Error("刪除失敗");
-                }
-            } catch (error) {
-                console.error("刪除失敗:", error);
-                alert("刪除雲端資料時發生錯誤，請稍後再試。");
-            } finally {
-                showLoading(false);
-            }
-        }
 
         // 啟動加載
         fetchDataFromCloud();
-    </script>
-</body>
-</html>
+  // 重新送件 UI 顯示控制
 document.getElementById('action-stage').addEventListener('change', function () {
     const box = document.getElementById('resubmit-box');
 
@@ -884,9 +846,22 @@ document.getElementById('action-stage').addEventListener('change', function () {
         box.style.display = "block";
     } else {
         box.style.display = "none";
-
-        // 清空避免殘留資料
         const input = document.getElementById('action-resubmit-note');
         if (input) input.value = "";
     }
 });
+async function saveToCloud(doc) {
+    let cleanData = { ...doc };
+    delete cleanData.id;
+    delete cleanData.created_at;
+
+    await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
+        method: 'PATCH',
+        headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(cleanData)
+    });
+}
