@@ -678,9 +678,17 @@ const UI = {
 
         /**
          * 渲染右側詳情面板
-         * @param {Object} doc 文件資料
+         *
+         * 日期欄位初始化原則：
+         *   - 只有在「切換到不同文件」時才重設日期為今日，
+         *     讓管理員在同一份文件上選好的日期不會被覆蓋。
+         *   - 同文件的多次 re-render（例如 loadDocuments 後刷新）
+         *     保留管理員已輸入的日期值，不予覆蓋。
+         *
+         * @param {Object} doc         文件資料
+         * @param {boolean} isNewDoc   是否為切換到新文件（true = 重設表單；false = 保留現有輸入）
          */
-        renderDetail(doc) {
+        renderDetail(doc, isNewDoc = false) {
             const detailSection = document.getElementById('detail-section');
             detailSection.classList.remove('hidden');
 
@@ -697,7 +705,7 @@ const UI = {
 
             // 管理員操作面板顯示邏輯
             if (State.isAdmin) {
-                const actionSection  = document.getElementById('admin-action-section');
+                const actionSection = document.getElementById('admin-action-section');
                 const normalPanel   = document.getElementById('action-normal-panel');
                 const rejectedPanel = document.getElementById('action-rejected-panel');
                 actionSection.classList.remove('hidden');
@@ -706,14 +714,22 @@ const UI = {
                 normalPanel.classList.toggle('hidden', isRejected);
                 rejectedPanel.classList.toggle('hidden', !isRejected);
 
-                if (!isRejected) {
-                    document.getElementById('action-stage').value = '';
-                    document.getElementById('action-date').value  = Utils.todayString();
-                } else {
-                    document.getElementById('action-resubmit-note').value  = '';
-                    document.getElementById('action-resubmit-stage').value = '';
-                    document.getElementById('action-resubmit-date').value  = Utils.todayString();
+                // ✅ 只在切換文件時重設表單，避免覆蓋管理員已手動選好的日期
+                if (isNewDoc) {
+                    const today = Utils.todayString();
+                    if (!isRejected) {
+                        // 一般面板：重設關卡、日期（預設今日）、評語
+                        document.getElementById('action-stage').value = '';
+                        document.getElementById('action-date').value  = today;
+                        document.getElementById('action-note').value  = '';
+                    } else {
+                        // 補正面板：重設補正說明、關卡、日期（預設今日）
+                        document.getElementById('action-resubmit-note').value  = '';
+                        document.getElementById('action-resubmit-stage').value = '';
+                        document.getElementById('action-resubmit-date').value  = today;
+                    }
                 }
+                // isNewDoc = false 時：保留管理員已輸入的日期與其他欄位值，不做任何覆蓋
             }
 
             this.renderTimeline(doc);
@@ -807,8 +823,11 @@ const UI = {
                 document.getElementById('detail-section').classList.add('hidden');
                 return;
             }
+            // ✅ 判斷是否切換到不同文件：是則傳 isNewDoc=true，重設表單欄位（含日期預設今日）
+            //    若是同一份文件的 re-render（例如狀態更新後刷新），則 isNewDoc=false，保留管理員輸入
+            const isNewDoc = State.currentSelectedIndex !== index;
             State.currentSelectedIndex = index;
-            this.renderDetail(doc);
+            this.renderDetail(doc, isNewDoc);
             // 重新渲染列表以更新選取樣式
             this.renderList();
         },
@@ -883,9 +902,15 @@ const App = {
             if (!silent) UI.Loading.setGlobal(false);
 
             // 刷新已選取文件的詳情
+            // ✅ isNewDoc=false：資料重載後不重設表單，管理員選好的日期完整保留
             if (State.currentSelectedIndex !== null) {
                 const safeDoc = State.filteredDocuments[State.currentSelectedIndex];
-                UI.Render.showDetail(safeDoc ? State.currentSelectedIndex : 0);
+                if (safeDoc) {
+                    UI.Render.renderDetail(safeDoc, false);
+                    UI.Render.renderList();
+                } else {
+                    UI.Render.showDetail(0);
+                }
             } else {
                 document.getElementById('detail-section').classList.add('hidden');
             }
@@ -965,88 +990,80 @@ const App = {
     },
 
     /**
-     * 更新文件狀態（送下一關、核准結案、駁回、補正重送）
-     * @param {string} targetStatus 目標狀態字串
-     * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於 Loading 狀態）
+     * 從指定面板讀取操作表單的欄位值。
+     *
+     * 核心設計原則：欄位來源由「目前顯示的 UI 面板」決定，
+     * 而非由文件的舊狀態（doc.status）推斷，避免狀態讀取錯位。
+     *
+     * @param {'normal'|'resubmit'} panel 目前顯示的操作面板
+     * @returns {{ stageVal: string, dateVal: string, noteVal: string }}
      */
-    async updateDocStatus(targetStatus, triggerBtn) {
-    if (State.currentSelectedIndex === null || !State.isAdmin) return;
+    _readActionFields(panel) {
+        if (panel === 'resubmit') {
+            return {
+                stageVal: document.getElementById('action-resubmit-stage')?.value ?? '',
+                // ✅ 關鍵修正：明確讀取補正面板專屬的日期欄位 action-resubmit-date
+                dateVal:  document.getElementById('action-resubmit-date')?.value ?? '',
+                noteVal:  document.getElementById('action-resubmit-note')?.value.trim() ?? '',
+            };
+        }
+        // panel === 'normal'
+        return {
+            stageVal: document.getElementById('action-stage')?.value ?? '',
+            // ✅ 關鍵修正：明確讀取一般面板專屬的日期欄位 action-date
+            dateVal:  document.getElementById('action-date')?.value ?? '',
+            noteVal:  document.getElementById('action-note')?.value.trim() ?? '',
+        };
+    },
 
-    const doc = State.filteredDocuments[State.currentSelectedIndex];
-    const isRejectedMode = doc.status === '被駁回';
+    /**
+     * 更新文件狀態（送下一關、核准結案、駁回、補正重送）
+     *
+     * @param {string} targetStatus 目標狀態字串：'審核中' | '已核准' | '被駁回'
+     * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於切換 Loading 樣式）
+     * @param {'normal'|'resubmit'} [panel='normal'] 目前顯示的操作面板。
+     *   - 'normal'   : 一般審核面板（action-date / action-stage / action-note）
+     *   - 'resubmit' : 補正重送面板（action-resubmit-date / action-resubmit-stage / action-resubmit-note）
+     *
+     * 修正說明：
+     *   原本以 doc.status === '被駁回' 判斷要讀哪個日期欄位，
+     *   但「駁回」、「核准」操作本身也在 normal 面板執行，
+     *   導致操作完成後 doc.status 已變更，下一次呼叫時判斷依據已失效。
+     *   改為由呼叫端明確傳入 panel 參數，欄位來源唯一確定，不再依賴文件狀態。
+     */
+    async updateDocStatus(targetStatus, triggerBtn, panel = 'normal') {
+        if (State.currentSelectedIndex === null || !State.isAdmin) return;
 
-    // 1. 取得欄位值 (這段就是你剛剛問的那段)
-    const stageVal = isRejectedMode
-        ? document.getElementById('action-resubmit-stage')?.value
-        : document.getElementById('action-stage')?.value;
-    const dateVal  = isRejectedMode
-        ? document.getElementById('action-resubmit-date')?.value
-        : document.getElementById('action-date')?.value;
-    const noteVal  = isRejectedMode
-        ? document.getElementById('action-resubmit-note')?.value.trim()
-        : document.getElementById('action-note')?.value.trim();
+        const doc = State.filteredDocuments[State.currentSelectedIndex];
 
-    // 2. 驗證
-    if (targetStatus === '審核中' && !stageVal) {
-        UI.Toast.show('warning', '請選擇下一個審核關卡');
-        return;
-    }
+        // 從正確的面板讀取所有欄位，日期來源不再含糊
+        const { stageVal, dateVal, noteVal } = this._readActionFields(panel);
 
-    // 3. 處理日期邏輯 (關鍵：若沒選日期，使用今日)
-    const finalDate = dateVal || getFormattedDateString();
-
-    UI.setLoading(triggerBtn, true);
-    try {
-        if (!Array.isArray(doc.history)) doc.history = [];
-
-        // 4. 寫入歷程 (這裡的 time: 必須使用 finalDate)
-        doc.history.push({
-            time: finalDate, 
-            stage: targetStatus,
-            note: noteVal || (targetStatus === '被駁回' ? "文件已駁回" : "已更新狀態"),
-            status: targetStatus === "被駁回" ? "error" : "success"
-        });
-
-        // 5. 若是審核中，更新狀態
-        if (targetStatus === '審核中') {
-            doc.currentStep = stageVal;
-            doc.status = '審核中';
-            doc.history.push({
-                time: finalDate, // 這裡也要用 finalDate
-                stage: `${stageVal}審核中`,
-                note: "等待處理",
-                status: "pending"
-            });
-        } else {
-            doc.status = targetStatus;
+        // 驗證：「送下一關」及「補正重送」都需要選擇目標關卡
+        if (targetStatus === '審核中' && !stageVal) {
+            UI.Toast.show('warning', '請選擇下一個審核關卡');
+            return;
         }
 
-        await saveToCloud(doc);
-        await fetchDataFromCloud();
-        UI.Toast.show('success', '更新成功！日期已設為：' + finalDate);
-    } catch (err) {
-        console.error(err);
-        UI.Toast.show('error', '更新失敗');
-    } finally {
-        UI.setLoading(triggerBtn, false);
-    }
-}
+        // ✅ chosenDate 優先使用管理員手動選擇的日期，未填才 fallback 為今日
         const chosenDate = dateVal || Utils.todayString();
         if (!Array.isArray(doc.history)) doc.history = [];
 
-        // 寫入本次操作歷程
+        // --- 寫入本次操作的歷程節點 ---
+        // 此節點記錄「管理員執行了什麼操作」
         doc.history.push({
-            time:   chosenDate,
+            time:   chosenDate,           // ✅ 正確使用從對應面板讀取的日期
             stage:  targetStatus,
             note:   noteVal || (targetStatus === '被駁回' ? '文件已駁回' : '已補正送審'),
             status: targetStatus === '被駁回' ? 'error' : 'success',
         });
 
         if (targetStatus === '審核中') {
+            // 「送下一關」或「補正重送」：額外新增一筆「等待審核」節點
             doc.currentStep = stageVal;
             doc.status      = '審核中';
             doc.history.push({
-                time:   chosenDate,
+                time:   chosenDate,       // ✅ 同一批操作共用同一個 chosenDate，時間軸一致
                 stage:  `${stageVal}審核中`,
                 note:   '等待處理',
                 status: 'pending',
@@ -1054,7 +1071,8 @@ const App = {
         } else {
             doc.status = targetStatus;
         }
-        doc.updatedAt = chosenDate;
+
+        doc.updatedAt = chosenDate;       // ✅ 列表的「更新時間」欄位也同步使用選定日期
 
         UI.Loading.setButton(triggerBtn, true);
         try {
@@ -1119,15 +1137,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('submit-btn').addEventListener('click', () => App.addDocument());
 
     // 一般審核操作按鈕（送下一關、核准、駁回）
+    // ✅ 明確傳入 panel='normal'，確保讀取 action-date / action-stage / action-note
     document.querySelectorAll('.action-btn[data-action]').forEach(btn => {
         btn.addEventListener('click', () => {
-            App.updateDocStatus(btn.dataset.action, btn);
+            App.updateDocStatus(btn.dataset.action, btn, 'normal');
         });
     });
 
     // 補正重送按鈕
+    // ✅ 明確傳入 panel='resubmit'，確保讀取 action-resubmit-date / action-resubmit-stage / action-resubmit-note
     document.getElementById('resubmit-btn').addEventListener('click', (e) => {
-        App.updateDocStatus('審核中', e.currentTarget);
+        App.updateDocStatus('審核中', e.currentTarget, 'resubmit');
     });
 
     // 刪除按鈕
