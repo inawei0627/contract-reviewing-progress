@@ -969,50 +969,46 @@ const App = {
      * @param {string} targetStatus 目標狀態字串
      * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於 Loading 狀態）
      */
-    async updateDocStatus(targetStatus, triggerBtn) {
+   async updateDocStatus(targetStatus, triggerBtn) {
     if (State.currentSelectedIndex === null || !State.isAdmin) return;
 
     const doc = State.filteredDocuments[State.currentSelectedIndex];
     const isRejectedMode = doc.status === '被駁回';
 
-    // 1. 取得欄位值 (這段就是你剛剛問的那段)
+    // 1. 取得欄位值 
     const stageVal = isRejectedMode
         ? document.getElementById('action-resubmit-stage')?.value
         : document.getElementById('action-stage')?.value;
-    const dateVal  = isRejectedMode
+    const dateVal = isRejectedMode
         ? document.getElementById('action-resubmit-date')?.value
         : document.getElementById('action-date')?.value;
-    const noteVal  = isRejectedMode
+    const noteVal = isRejectedMode
         ? document.getElementById('action-resubmit-note')?.value.trim()
         : document.getElementById('action-note')?.value.trim();
+        //
+       const finalDate = dateVal ? dateVal : getFormattedDateString();
 
-    // 2. 驗證
     if (targetStatus === '審核中' && !stageVal) {
         UI.Toast.show('warning', '請選擇下一個審核關卡');
         return;
     }
 
-    // 3. 處理日期邏輯 (關鍵：若沒選日期，使用今日)
-    const finalDate = dateVal || getFormattedDateString();
-
     UI.setLoading(triggerBtn, true);
     try {
         if (!Array.isArray(doc.history)) doc.history = [];
-
-        // 4. 寫入歷程 (這裡的 time: 必須使用 finalDate)
+        // 
         doc.history.push({
-            time: finalDate, 
+            time: finalDate, // 使用你指定的時間
             stage: targetStatus,
             note: noteVal || (targetStatus === '被駁回' ? "文件已駁回" : "已更新狀態"),
             status: targetStatus === "被駁回" ? "error" : "success"
         });
 
-        // 5. 若是審核中，更新狀態
         if (targetStatus === '審核中') {
             doc.currentStep = stageVal;
             doc.status = '審核中';
             doc.history.push({
-                time: finalDate, // 這裡也要用 finalDate
+                time: finalDate, // 這裡也必須使用 finalDate
                 stage: `${stageVal}審核中`,
                 note: "等待處理",
                 status: "pending"
@@ -1023,7 +1019,7 @@ const App = {
 
         await saveToCloud(doc);
         await fetchDataFromCloud();
-        UI.Toast.show('success', '更新成功！日期已設為：' + finalDate);
+        UI.Toast.show('success', `更新成功！日期已變更為：${finalDate}`);
     } catch (err) {
         console.error(err);
         UI.Toast.show('error', '更新失敗');
@@ -1031,6 +1027,7 @@ const App = {
         UI.setLoading(triggerBtn, false);
     }
 }
+    
         const chosenDate = dateVal || Utils.todayString();
         if (!Array.isArray(doc.history)) doc.history = [];
 
