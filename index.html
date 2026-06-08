@@ -969,64 +969,67 @@ const App = {
      * @param {string} targetStatus 目標狀態字串
      * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於 Loading 狀態）
      */
-   async updateDocStatus(targetStatus, triggerBtn) {
-    if (State.currentSelectedIndex === null || !State.isAdmin) return;
+updateDocStatus: async function(targetStatus, triggerBtn) {
+        if (State.currentSelectedIndex === null || !State.isAdmin) return;
 
-    const doc = State.filteredDocuments[State.currentSelectedIndex];
-    const isRejectedMode = doc.status === '被駁回';
+        const doc = State.filteredDocuments[State.currentSelectedIndex];
+        const isRejectedMode = doc.status === '被駁回';
 
-    // 
-    const stageVal = isRejectedMode
-        ? document.getElementById('action-resubmit-stage')?.value
-        : document.getElementById('action-stage')?.value;
-    const dateVal = isRejectedMode
-        ? document.getElementById('action-resubmit-date')?.value
-        : document.getElementById('action-date')?.value;
-    const noteVal = isRejectedMode
-        ? document.getElementById('action-resubmit-note')?.value.trim()
-        : document.getElementById('action-note')?.value.trim();
-        //
-       const finalDate = dateVal ? dateVal : getFormattedDateString();
+        // 依照目前模式取得對應欄位的值
+        const stageVal = isRejectedMode
+            ? document.getElementById('action-resubmit-stage')?.value
+            : document.getElementById('action-stage')?.value;
+        const dateVal = isRejectedMode
+            ? document.getElementById('action-resubmit-date')?.value
+            : document.getElementById('action-date')?.value;
+        const noteVal = isRejectedMode
+            ? document.getElementById('action-resubmit-note')?.value.trim()
+            : document.getElementById('action-note')?.value.trim();
 
-    if (targetStatus === '審核中' && !stageVal) {
-        UI.Toast.show('warning', '請選擇下一個審核關卡');
-        return;
-    }
+        // 修正重點：確保取得有效的日期，若沒有選擇則使用今日
+        const finalDate = (dateVal && dateVal !== "") ? dateVal : getFormattedDateString();
 
-    UI.setLoading(triggerBtn, true);
-    try {
-        if (!Array.isArray(doc.history)) doc.history = [];
-        // 
-        doc.history.push({
-            time: finalDate, // 使用你指定的時間
-            stage: targetStatus,
-            note: noteVal || (targetStatus === '被駁回' ? "文件已駁回" : "已更新狀態"),
-            status: targetStatus === "被駁回" ? "error" : "success"
-        });
-
-        if (targetStatus === '審核中') {
-            doc.currentStep = stageVal;
-            doc.status = '審核中';
-            doc.history.push({
-                time: finalDate, // 這裡也必須使用 finalDate
-                stage: `${stageVal}審核中`,
-                note: "等待處理",
-                status: "pending"
-            });
-        } else {
-            doc.status = targetStatus;
+        // 驗證：送下一關時必須選擇關卡
+        if (targetStatus === '審核中' && !stageVal) {
+            UI.Toast.show('warning', '請選擇下一個審核關卡');
+            return;
         }
 
-        await saveToCloud(doc);
-        await fetchDataFromCloud();
-        UI.Toast.show('success', `更新成功！日期已變更為：${finalDate}`);
-    } catch (err) {
-        console.error(err);
-        UI.Toast.show('error', '更新失敗');
-    } finally {
-        UI.setLoading(triggerBtn, false);
-    }
-}
+        UI.setLoading(triggerBtn, true);
+        try {
+            if (!Array.isArray(doc.history)) doc.history = [];
+
+            // 寫入歷程：強制使用 finalDate
+            doc.history.push({
+                time: finalDate, 
+                stage: targetStatus,
+                note: noteVal || (targetStatus === '被駁回' ? "文件已駁回" : "已更新狀態"),
+                status: targetStatus === "被駁回" ? "error" : "success"
+            });
+
+            if (targetStatus === '審核中') {
+                doc.currentStep = stageVal;
+                doc.status = '審核中';
+                doc.history.push({
+                    time: finalDate, 
+                    stage: `${stageVal}審核中`,
+                    note: "等待處理",
+                    status: "pending"
+                });
+            } else {
+                doc.status = targetStatus;
+            }
+
+            await saveToCloud(doc);
+            await fetchDataFromCloud();
+            UI.Toast.show('success', '更新成功！日期已設為：' + finalDate);
+        } catch (err) {
+            console.error(err);
+            UI.Toast.show('error', '更新失敗');
+        } finally {
+            UI.setLoading(triggerBtn, false);
+        }
+    },
     
         const chosenDate = dateVal || Utils.todayString();
         if (!Array.isArray(doc.history)) doc.history = [];
