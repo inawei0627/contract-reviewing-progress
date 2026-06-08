@@ -810,32 +810,41 @@
         }
 
         // ── 審核狀態流轉 ──────────────────────────────────────────
-       async function updateDocStatus(targetStatus) {
+async function updateDocStatus(targetStatus) {
     if (currentSelectedIndex === null || !isAdmin) return;
-
-    // 1. 獲取 UI 值
-    const stageSelect = document.getElementById('action-stage').value;
-    const dateInput = document.getElementById('action-date').value;
-    const noteInput = document.getElementById('action-note').value.trim();
 
     const doc = filteredDocuments[currentSelectedIndex];
     if (!doc) return;
 
-    // 2. 流程驗證
+    // 1. 根據簽呈狀態，動態決定抓取哪個 UI 的值
+    let stageSelect, dateInput, noteInput;
+
+    if (doc.status === '被駁回') {
+        // 若是駁回狀態，抓取補正面板的元素
+        stageSelect = document.getElementById('action-resubmit-stage')?.value;
+        dateInput = document.getElementById('action-resubmit-date')?.value;
+        noteInput = document.getElementById('action-resubmit-note')?.value.trim();
+    } else {
+        // 一般審核狀態，抓取正常面板的元素
+        stageSelect = document.getElementById('action-stage')?.value;
+        dateInput = document.getElementById('action-date')?.value;
+        noteInput = document.getElementById('action-note')?.value.trim();
+    }
+
+    // 2. 防錯檢查：如果抓不到值，直接終止並提示
     if (targetStatus === '審核中' && !stageSelect) {
-        alert("請選擇下一關卡");
+        alert("請確認已正確選擇關卡。");
         return;
     }
 
     showLoading(true);
 
     try {
-        const chosenDate = dateInput ? dateInput : getFormattedDateString();
+        const chosenDate = dateInput || getFormattedDateString();
         
-        // 確保 history 存在
         if (!Array.isArray(doc.history)) doc.history = [];
 
-        // 添加本次處理紀錄
+        // 添加處理紀錄
         doc.history.push({
             time: chosenDate,
             stage: targetStatus,
@@ -843,9 +852,9 @@
             status: targetStatus === "被駁回" ? "error" : "success"
         });
 
-        // 如果是審核中，添加下一關的待處理節點
         if (targetStatus === '審核中') {
             doc.currentStep = stageSelect;
+            doc.status = '審核中'; // 確保狀態更新
             doc.history.push({
                 time: chosenDate,
                 stage: `${stageSelect}審核中`,
@@ -853,30 +862,26 @@
                 status: "pending"
             });
         } else {
-            // 已核准或駁回，清空當前關卡
             doc.status = targetStatus;
         }
 
-        // 3. 準備存入資料
         const cleanData = { ...doc };
         delete cleanData.id;
         delete cleanData.created_at;
 
-        // 4. 執行更新
         const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
             method: 'PATCH',
             headers: {
                 "apikey": SUPABASE_KEY,
                 "Authorization": `Bearer ${SUPABASE_KEY}`,
                 "Content-Type": "application/json",
-                "Prefer": "return=representation" // 強制回傳更新後的資料
+                "Prefer": "return=representation"
             },
             body: JSON.stringify(cleanData)
         });
 
         if (!response.ok) throw new Error("資料庫更新失敗");
 
-        // 5. 重新整理 UI
         await fetchDataFromCloud();
         alert("更新成功！");
 
