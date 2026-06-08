@@ -975,7 +975,7 @@ const App = {
     const doc = State.filteredDocuments[State.currentSelectedIndex];
     const isRejectedMode = doc.status === '被駁回';
 
-    // 1. 取得欄位值 
+    // 
     const stageVal = isRejectedMode
         ? document.getElementById('action-resubmit-stage')?.value
         : document.getElementById('action-stage')?.value;
