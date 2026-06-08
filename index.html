@@ -19,12 +19,12 @@
                     <div id="global-loading" class="ml-4 flex items-center text-xs text-indigo-600 font-medium">
                         <i class="fa-solid fa-circle-notch animate-spin mr-1"></i> 雲端資料同步中...
                     </div>
-                </div>
+                </div>            
                 <div class="flex items-center">
                     <button id="auth-btn" onclick="handleAuthClick()" class="text-sm bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition">
                         <i class="fa-solid fa-lock mr-1"></i> 管理員登入
                     </button>
-                </div>
+                </div>        
             </div>
         </div>
     </nav>
@@ -205,9 +205,9 @@
                                         <option value="副總">副總</option>
                                         <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
                                     </select>
-                                    <input type="date" id="action-resubmit-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
+                                    <input type="date" id="action-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
                                 </div>
-                                <button onclick="resubmitRejectedDoc()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 font-bold rounded transition flex items-center justify-center gap-1.5">
+                                <button onclick="updateDocStatus('審核中')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 font-bold rounded transition flex items-center justify-center gap-1.5">
                                     <i class="fa-solid fa-paper-plane"></i> 確認補正，重新送審
                                 </button>
                             </div>
@@ -498,14 +498,9 @@
                 actionSection.classList.remove('hidden');
 
                 if (doc.status === '被駁回') {
-                    normalPanel.classList.add('hidden');
-                    rejectedPanel.classList.remove('hidden');
-                    const rdEl = document.getElementById('action-resubmit-date');
-                    if (rdEl) rdEl.value = getFormattedDateString();
-                    const rnEl = document.getElementById('action-resubmit-note');
-                    if (rnEl) rnEl.value = '';
-                    const rsEl = document.getElementById('action-resubmit-stage');
-                    if (rsEl) rsEl.value = '';
+                   stageSelect = document.getElementById('action-resubmit-stage')?.value;
+    dateInput = document.getElementById('action-resubmit-date')?.value;
+    noteInput = document.getElementById('action-resubmit-note')?.value.trim();
                 } else {
                     normalPanel.classList.remove('hidden');
                     rejectedPanel.classList.add('hidden');
@@ -666,6 +661,24 @@
                 showLoading(false);
             }
         } // 這是 updateDocStatus 的結尾
+
+	// 儲存資料到 Supabase
+async function saveToCloud(doc) {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
+        method: 'PATCH',
+        headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        },
+        body: JSON.stringify({ data: doc }) // 確保結構符合您的 DB 設計
+    });
+    
+    if (!response.ok) throw new Error("儲存資料至雲端失敗");
+    return await response.json();
+}
+
 
     </script>
 </body>
