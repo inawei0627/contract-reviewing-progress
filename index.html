@@ -3,674 +3,1134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企業簽呈進度追蹤系統 (Supabase 雲端正式版)</title>
+    <title>企業簽呈進度追蹤系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Toast 動畫 */
+        @keyframes slideInRight {
+            from { transform: translateX(110%); opacity: 0; }
+            to   { transform: translateX(0);    opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to   { opacity: 0; }
+        }
+        .toast-enter  { animation: slideInRight .3s ease forwards; }
+        .toast-leave  { animation: fadeOut .4s ease forwards; }
+
+        /* 按鈕 Loading Spinner */
+        .btn-loading { pointer-events: none; opacity: .7; }
+        .btn-loading .btn-text { display: none; }
+        .btn-loading .btn-spinner { display: inline-block !important; }
+        .btn-spinner { display: none; }
+    </style>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen">
 
-    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <i class="fa-solid fa-file-signature text-indigo-600 text-2xl mr-3"></i>
-                    <span class="text-xl font-bold text-gray-800">簽呈進度追蹤系統</span>
-                    <span id="role-badge" class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">訪客唯讀模式</span>
-                    <div id="global-loading" class="ml-4 flex items-center text-xs text-indigo-600 font-medium">
-                        <i class="fa-solid fa-circle-notch animate-spin mr-1"></i> 雲端資料同步中...
-                    </div>
-                </div>            
-                <div class="flex items-center">
-                    <button id="auth-btn" onclick="handleAuthClick()" class="text-sm bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition">
-                        <i class="fa-solid fa-lock mr-1"></i> 管理員登入
-                    </button>
-                </div>        
+<!-- ───────────── 頂部導覽列 ───────────── -->
+<nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <div class="flex items-center">
+                <i class="fa-solid fa-file-signature text-indigo-600 text-2xl mr-3"></i>
+                <span class="text-xl font-bold text-gray-800">簽呈進度追蹤系統</span>
+                <span id="role-badge" class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">訪客唯讀模式</span>
+                <div id="global-loading" class="ml-4 hidden items-center text-xs text-indigo-600 font-medium">
+                    <i class="fa-solid fa-circle-notch animate-spin mr-1"></i> 雲端資料同步中...
+                </div>
+            </div>
+            <div class="flex items-center">
+                <button id="auth-btn" class="text-sm bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-lock mr-1"></i> 管理員登入
+                </button>
             </div>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
-                <div class="p-3 bg-blue-50 text-blue-600 rounded-lg mr-4"><i class="fa-solid fa-list-check text-xl"></i></div>
-                <div>
-                    <p class="text-sm text-gray-500 font-medium">總簽呈數</p>
-                    <p id="count-total" class="text-2xl font-bold text-gray-800">0</p>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
-                <div class="p-3 bg-amber-50 text-amber-600 rounded-lg mr-4"><i class="fa-solid fa-spinner text-xl animate-spin"></i></div>
-                <div>
-                    <p class="text-sm text-gray-500 font-medium">審核中</p>
-                    <p id="count-pending" class="text-2xl font-bold text-amber-600">0</p>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
-                <div class="p-3 bg-green-50 text-green-600 rounded-lg mr-4"><i class="fa-solid fa-circle-check text-xl"></i></div>
-                <div>
-                    <p class="text-sm text-gray-500 font-medium">已核准結案</p>
-                    <p id="count-approved" class="text-2xl font-bold text-green-600">0</p>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
-                <div class="p-3 bg-red-50 text-red-600 rounded-lg mr-4"><i class="fa-solid fa-circle-xmark text-xl"></i></div>
-                <div>
-                    <p class="text-sm text-gray-500 font-medium">被駁回</p>
-                    <p id="count-rejected" class="text-2xl font-bold text-red-600">0</p>
-                </div>
+<!-- ───────────── Toast 容器 ───────────── -->
+<div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-2 w-80 pointer-events-none"></div>
+
+<!-- ───────────── 主內容 ───────────── -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- 統計卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div class="p-3 bg-blue-50 text-blue-600 rounded-lg mr-4"><i class="fa-solid fa-list-check text-xl"></i></div>
+            <div>
+                <p class="text-sm text-gray-500 font-medium">總簽呈數</p>
+                <p id="count-total" class="text-2xl font-bold text-gray-800">0</p>
             </div>
         </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-6">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    
-                    <div class="p-5 border-b border-gray-100 space-y-4 bg-gray-50">
-                        <div class="flex justify-between items-center">
-                            <h2 class="font-bold text-gray-800 flex items-center">
-                                <i class="fa-solid fa-table-list mr-2 text-gray-500"></i> 簽呈進度總表
-                            </h2>
-                            <button onclick="fetchDataFromCloud()" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"><i class="fa-solid fa-arrows-rotate mr-1"></i> 手動整理</button>
-                        </div>
-                        
-                        <div class="relative">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
-                            <input type="text" id="search-input" oninput="filterDocuments()" placeholder="輸入申請人、部門、主旨或「內容說明」關鍵字搜尋..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-400 shadow-sm bg-white">
-                        </div>
-                    </div>
-                    
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-gray-100 text-gray-600 text-xs uppercase font-semibold">
-                                    <th class="px-6 py-3 w-1/2">編號 / 主旨 / 內容說明</th>
-                                    <th class="px-6 py-3">申請人</th>
-                                    <th class="px-6 py-3">當前關卡</th>
-                                    <th class="px-6 py-3">狀態</th>
-                                    <th class="px-6 py-3">更新時間</th>
-                                </tr>
-                            </thead>
-                            <tbody id="document-list-body" class="divide-y divide-gray-100 text-sm">
-                                <tr>
-                                    <td colspan="5" class="px-6 py-10 text-center text-gray-400">正在從雲端資料庫載入最新進度...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-6">
-                <div id="admin-form-section" class="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-100 hidden">
-                    <h2 class="font-bold text-gray-800 mb-4 flex items-center border-b pb-2">
-                        <i class="fa-solid fa-feather-pointed mr-2 text-indigo-500"></i> 新增簽呈 (管理員專用)
-                    </h2>
-                    <form id="add-doc-form" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">簽呈主旨</label>
-                            <input type="text" id="form-title" required placeholder="例如：採購辦公室電腦三台" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1">申請人</label>
-                                <input type="text" id="form-applicant" required placeholder="王大同" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1">申請部門</label>
-                                <input type="text" id="form-dept" required placeholder="資訊部" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
-                            <select id="form-current-step" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
-                                <option value="部門主管" selected>部門主管</option>
-                                <option value="法務">法務</option>
-                                <option value="會計部">會計部</option>
-                                <option value="採購部">採購部</option>
-                                <option value="副總">副總</option>
-                                <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">內容說明</label>
-                            <textarea id="form-content" rows="3" placeholder="請輸入簽呈詳細事由..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500"></textarea>
-                        </div>
-                        <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm flex justify-center items-center">
-                            <i class="fa-solid fa-paper-plane mr-1"></i> 發布新簽呈到雲端
-                        </button>
-                    </form>
-                </div>
-
-                <div id="detail-section" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
-                    <div class="flex justify-between items-start border-b pb-3 mb-4">
-                        <div>
-                            <span id="detail-id" class="text-xs font-mono text-gray-400">#DOC-001</span>
-                            <h3 id="detail-title" class="font-bold text-gray-800 text-base">簽呈主旨</h3>
-                        </div>
-                        <span id="detail-status-badge" class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">狀態</span>
-                    </div>
-                    
-                    <div class="text-xs text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg space-y-1">
-                        <p><strong>申請人：</strong><span id="detail-applicant">--</span> (<span id="detail-dept">--</span>)</p>
-                        <p><strong>事由：</strong><span id="detail-content">--</span></p>
-                    </div>
-
-                    <div id="admin-action-section" class="mb-5 rounded-lg border hidden">
-
-                        <!-- ① 一般審核中模式 -->
-                        <div id="action-normal-panel" class="p-3 bg-amber-50 border-amber-200 rounded-lg">
-                            <p class="text-xs font-bold text-amber-800 mb-2"><i class="fa-solid fa-user-gear mr-1"></i> 管理員變更進度</p>
-                            <div class="space-y-2 mb-3">
-                                <div class="grid grid-cols-2 gap-2">
-                                    <select id="action-stage" class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
-                                        <option value="" disabled selected>選擇下個關卡</option>
-                                        <option value="法務">法務</option>
-                                        <option value="會計部">會計部</option>
-                                        <option value="採購部">採購部</option>
-                                        <option value="副總">副總</option>
-                                        <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
-                                    </select>
-                                    <input type="date" id="action-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
-                                </div>
-                                <input type="text" id="action-note" placeholder="簽核評語/意見、駁回理由 (選填)" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white">
-                                <div class="flex gap-2 pt-1">
-                                    <button onclick="updateDocStatus('審核中')" class="flex-1 bg-amber-500 text-white text-xs py-1.5 font-medium rounded hover:bg-amber-600 transition">送下一關</button>
-                                    <button onclick="updateDocStatus('已核准')" class="flex-1 bg-green-600 text-white text-xs py-1.5 font-medium rounded hover:bg-green-700 transition">核准結案</button>
-                                    <button onclick="updateDocStatus('被駁回')" class="flex-1 bg-red-600 text-white text-xs py-1.5 font-medium rounded hover:bg-red-700 transition">駁回</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- ② 被駁回補正送審模式 -->
-                        <div id="action-rejected-panel" class="p-3 bg-red-50 border-red-200 rounded-lg hidden">
-                            <p class="text-xs font-bold text-red-700 mb-1 flex items-center gap-1">
-                                <i class="fa-solid fa-rotate-left"></i> 此簽呈已被駁回 — 補正後重新送審
-                            </p>
-                            <p class="text-xs text-red-500 mb-3">選擇後續審核關卡後即可重新送審，補正說明可選填。</p>
-                            <div class="space-y-2">
-                                <textarea id="action-resubmit-note" rows="2"
-                                    placeholder="補正說明（選填）：說明已修正的內容或理由..."
-                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-indigo-500 resize-none"></textarea>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <select id="action-resubmit-stage" class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
-                                        <option value="" disabled selected>選擇重新送審關卡</option>
-                            		<option value="法務">法務</option>
-                                        <option value="會計部">會計部</option>
-                                        <option value="採購部">採購部</option>
-                                        <option value="副總">副總</option>
-                                        <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
-                                    </select>
-                                    <input type="date" id="action-resubmit-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
-                                </div>
-                                <button onclick="updateDocStatus('審核中')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 font-bold rounded transition flex items-center justify-center gap-1.5">
-                                    <i class="fa-solid fa-paper-plane"></i> 確認補正，重新送審
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="border-t border-gray-200 pt-2 flex justify-end px-3 pb-2 mt-1">
-                            <button onclick="deleteDocumentFromCloud()" class="text-xs text-red-600 hover:text-red-800 font-semibold bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition flex items-center">
-                                <i class="fa-solid fa-trash-can mr-1"></i> 刪除此筆簽呈資料
-                            </button>
-                        </div>
-                    </div>
-
-                    <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">簽核歷程時間軸</h4>
-                    <div id="timelineContainer" class="relative border-l-2 border-gray-200 ml-2 space-y-4 pb-2"></div>
-                </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div class="p-3 bg-amber-50 text-amber-600 rounded-lg mr-4"><i class="fa-solid fa-spinner text-xl animate-spin"></i></div>
+            <div>
+                <p class="text-sm text-gray-500 font-medium">審核中</p>
+                <p id="count-pending" class="text-2xl font-bold text-amber-600">0</p>
             </div>
         </div>
-    </main>
-
-    <div id="password-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 mx-4">
-            <div class="flex items-center mb-4 text-indigo-600">
-                <i class="fa-solid fa-shield-halved text-2xl mr-2"></i>
-                <h3 class="text-lg font-bold text-gray-800">管理員權限驗證</h3>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div class="p-3 bg-green-50 text-green-600 rounded-lg mr-4"><i class="fa-solid fa-circle-check text-xl"></i></div>
+            <div>
+                <p class="text-sm text-gray-500 font-medium">已核准結案</p>
+                <p id="count-approved" class="text-2xl font-bold text-green-600">0</p>
             </div>
-            <p class="text-xs text-gray-500 mb-4">請輸入專屬暗號以啟用「新增與編輯明細」功能。</p>
-            <div class="space-y-4">
-                <div>
-                    <input type="password" id="modal-password-input" placeholder="請輸入密碼" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                    <p id="password-error-msg" class="text-xs text-red-500 mt-1 hidden">密碼錯誤，請重新輸入。</p>
-                </div>
-                <div class="flex gap-3 justify-end text-sm font-medium">
-                    <button onclick="closePasswordModal()" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition">取消</button>
-                    <button onclick="verifyAdminPassword()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-sm">確認登入</button>
-                </div>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div class="p-3 bg-red-50 text-red-600 rounded-lg mr-4"><i class="fa-solid fa-circle-xmark text-xl"></i></div>
+            <div>
+                <p class="text-sm text-gray-500 font-medium">被駁回</p>
+                <p id="count-rejected" class="text-2xl font-bold text-red-600">0</p>
             </div>
         </div>
     </div>
 
-    <script>
-        const SUPABASE_URL = "https://arosasnpwfkaiaglocex.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyb3Nhc25wd2ZrYWlhZ2xvY2V4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MzU2MzcsImV4cCI6MjA5NjQxMTYzN30.0qBGNuyUTitC5fqlH2SAH4ZElm490ttcI8MmB4udDXM";
-        const ADMIN_PASSWORD = "admin123";
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- 簽呈列表 -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="p-5 border-b border-gray-100 space-y-4 bg-gray-50">
+                    <div class="flex justify-between items-center">
+                        <h2 class="font-bold text-gray-800 flex items-center">
+                            <i class="fa-solid fa-table-list mr-2 text-gray-500"></i> 簽呈進度總表
+                        </h2>
+                        <button id="refresh-btn" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                            <i class="fa-solid fa-arrows-rotate mr-1"></i> 手動更新
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
+                        <input type="text" id="search-input" placeholder="輸入申請人、部門、主旨或內容關鍵字搜尋..."
+                            class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-400 shadow-sm bg-white">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 text-xs uppercase font-semibold">
+                                <th class="px-6 py-3 w-1/2">編號 / 主旨 / 內容說明</th>
+                                <th class="px-6 py-3">申請人</th>
+                                <th class="px-6 py-3">當前關卡</th>
+                                <th class="px-6 py-3">狀態</th>
+                                <th class="px-6 py-3">更新時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="document-list-body" class="divide-y divide-gray-100 text-sm">
+                            <tr>
+                                <td colspan="5" class="px-6 py-10 text-center text-gray-400">
+                                    正在從雲端資料庫載入最新進度...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-        let allDocuments = [];
-        let filteredDocuments = [];
-        let isAdmin = false;
-        let currentSelectedIndex = null;
+        <!-- 右側面板 -->
+        <div class="space-y-6">
+            <!-- 新增簽呈表單（管理員專用） -->
+            <div id="admin-form-section" class="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-100 hidden">
+                <h2 class="font-bold text-gray-800 mb-4 flex items-center border-b pb-2">
+                    <i class="fa-solid fa-feather-pointed mr-2 text-indigo-500"></i> 新增簽呈 (管理員專用)
+                </h2>
+                <div id="add-doc-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">簽呈主旨</label>
+                        <input type="text" id="form-title" placeholder="例如：採購辦公室電腦三台"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">申請人</label>
+                            <input type="text" id="form-applicant" placeholder="王大同"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">申請部門</label>
+                            <input type="text" id="form-dept" placeholder="資訊部"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
+                        <select id="form-current-step"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
+                            <option value="部門主管" selected>部門主管</option>
+                            <option value="法務">法務</option>
+                            <option value="會計部">會計部</option>
+                            <option value="採購部">採購部</option>
+                            <option value="副總">副總</option>
+                            <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">內容說明</label>
+                        <textarea id="form-content" rows="3" placeholder="請輸入簽呈詳細事由..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500"></textarea>
+                    </div>
+                    <button id="submit-btn"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                        <span class="btn-text"><i class="fa-solid fa-paper-plane mr-1"></i> 發布新簽呈到雲端</span>
+                    </button>
+                </div>
+            </div>
 
-        function getFormattedDateString(dateObj = new Date()) {
-            return `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')}`;
-        }
+            <!-- 簽呈詳情面板 -->
+            <div id="detail-section" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
+                <div class="flex justify-between items-start border-b pb-3 mb-4">
+                    <div>
+                        <span id="detail-id" class="text-xs font-mono text-gray-400">#DOC-001</span>
+                        <h3 id="detail-title" class="font-bold text-gray-800 text-base">簽呈主旨</h3>
+                    </div>
+                    <span id="detail-status-badge" class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">狀態</span>
+                </div>
 
-        function setNowToDateInput() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const targetEl = document.getElementById('action-date');
-            if (targetEl) targetEl.value = `${year}-${month}-${day}`;
-        }
+                <div class="text-xs text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg space-y-1">
+                    <p><strong>申請人：</strong><span id="detail-applicant">--</span> (<span id="detail-dept">--</span>)</p>
+                    <p><strong>事由：</strong><span id="detail-content">--</span></p>
+                </div>
 
-        // ── 雲端資料讀取 ──────────────────────────────────────────
-        async function fetchDataFromCloud() {
-            showLoading(true);
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?select=*&order=created_at.desc`, {
-                    headers: {
-                        "apikey": SUPABASE_KEY,
-                        "Authorization": `Bearer ${SUPABASE_KEY}`
-                    }
-                });
+                <!-- 管理員操作區 -->
+                <div id="admin-action-section" class="mb-5 rounded-lg border hidden">
 
-                if (!response.ok) throw new Error("API 請求失敗");
+                    <!-- ① 一般審核中模式 -->
+                    <div id="action-normal-panel" class="p-3 bg-amber-50 border-amber-200 rounded-lg">
+                        <p class="text-xs font-bold text-amber-800 mb-2">
+                            <i class="fa-solid fa-user-gear mr-1"></i> 管理員變更進度
+                        </p>
+                        <div class="space-y-2 mb-3">
+                            <div class="grid grid-cols-2 gap-2">
+                                <select id="action-stage"
+                                    class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
+                                    <option value="" disabled selected>選擇下個關卡</option>
+                                    <option value="法務">法務</option>
+                                    <option value="會計部">會計部</option>
+                                    <option value="採購部">採購部</option>
+                                    <option value="副總">副總</option>
+                                    <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
+                                </select>
+                                <input type="date" id="action-date"
+                                    class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <input type="text" id="action-note" placeholder="簽核評語/駁回理由 (選填)"
+                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white">
+                            <div class="flex gap-2 pt-1">
+                                <button data-action="審核中"
+                                    class="action-btn flex-1 bg-amber-500 text-white text-xs py-1.5 font-medium rounded hover:bg-amber-600 transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                                    <span class="btn-text">送下一關</span>
+                                </button>
+                                <button data-action="已核准"
+                                    class="action-btn flex-1 bg-green-600 text-white text-xs py-1.5 font-medium rounded hover:bg-green-700 transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                                    <span class="btn-text">核准結案</span>
+                                </button>
+                                <button data-action="被駁回"
+                                    class="action-btn flex-1 bg-red-600 text-white text-xs py-1.5 font-medium rounded hover:bg-red-700 transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                                    <span class="btn-text">駁回</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-                const dbData = await response.json();
-                if (Array.isArray(dbData) && dbData.length > 0) {
-                    allDocuments = dbData.map(item => {
-                        if (item && item.data) {
-                            // 先展開 data，再用外層真實的 id/created_at 覆蓋，避免 data 內的 id 欄位污染
-                            const merged = { ...item.data };
-                            merged.id         = item.id;          // 強制用 DB bigint id
-                            merged.created_at = item.created_at;
-                            return merged;
-                        }
-                        return item;
-                    }).filter(Boolean);
-                } else {
-                    allDocuments = [];
-                }
+                    <!-- ② 被駁回補正送審模式 -->
+                    <div id="action-rejected-panel" class="p-3 bg-red-50 border-red-200 rounded-lg hidden">
+                        <p class="text-xs font-bold text-red-700 mb-1 flex items-center gap-1">
+                            <i class="fa-solid fa-rotate-left"></i> 此簽呈已被駁回 — 補正後重新送審
+                        </p>
+                        <p class="text-xs text-red-500 mb-3">選擇後續審核關卡後即可重新送審，補正說明可選填。</p>
+                        <div class="space-y-2">
+                            <textarea id="action-resubmit-note" rows="2"
+                                placeholder="補正說明（選填）：說明已修正的內容或理由..."
+                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+                            <div class="grid grid-cols-2 gap-2">
+                                <select id="action-resubmit-stage"
+                                    class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
+                                    <option value="" disabled selected>選擇重新送審關卡</option>
+                                    <option value="法務">法務</option>
+                                    <option value="會計部">會計部</option>
+                                    <option value="採購部">採購部</option>
+                                    <option value="副總">副總</option>
+                                    <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
+                                </select>
+                                <input type="date" id="action-resubmit-date"
+                                    class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <button id="resubmit-btn"
+                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 font-bold rounded transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                                <span class="btn-text"><i class="fa-solid fa-paper-plane"></i> 確認補正，重新送審</span>
+                            </button>
+                        </div>
+                    </div>
 
-                filteredDocuments = [...allDocuments];
-                renderSystem();
+                    <div class="border-t border-gray-200 pt-2 flex justify-end px-3 pb-2 mt-1">
+                        <button id="delete-btn"
+                            class="text-xs text-red-600 hover:text-red-800 font-semibold bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition flex items-center gap-1">
+                            <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                            <span class="btn-text"><i class="fa-solid fa-trash-can mr-1"></i> 刪除此筆簽呈資料</span>
+                        </button>
+                    </div>
+                </div>
 
-                if (currentSelectedIndex !== null && filteredDocuments.length > 0) {
-                    const safeDoc = filteredDocuments[currentSelectedIndex];
-                    if (safeDoc) {
-                        showDetail(currentSelectedIndex);
-                    } else {
-                        showDetail(0);
-                    }
-                } else {
-                    document.getElementById('detail-section').classList.add('hidden');
-                }
-            } catch (error) {
-                console.error("雲端讀取失敗:", error);
-                allDocuments = [];
-                filteredDocuments = [];
-                renderSystem();
-            } finally {
-                showLoading(false);
+                <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">簽核歷程時間軸</h4>
+                <div id="timelineContainer" class="relative border-l-2 border-gray-200 ml-2 space-y-4 pb-2"></div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- ───────────── 密碼 Modal ───────────── -->
+<div id="password-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 mx-4">
+        <div class="flex items-center mb-4 text-indigo-600">
+            <i class="fa-solid fa-shield-halved text-2xl mr-2"></i>
+            <h3 class="text-lg font-bold text-gray-800">管理員權限驗證</h3>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">請輸入管理員密碼以啟用新增與編輯功能。</p>
+        <div class="space-y-4">
+            <div>
+                <input type="password" id="modal-password-input" placeholder="請輸入密碼"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                <p id="password-error-msg" class="text-xs text-red-500 mt-1 hidden">密碼錯誤，請重新輸入。</p>
+            </div>
+            <div class="flex gap-3 justify-end text-sm font-medium">
+                <button id="modal-cancel-btn" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition">取消</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-sm">確認登入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ───────────── 主要 JavaScript（模組化命名空間） ───────────── -->
+<script>
+/**
+ * @fileoverview 企業簽呈進度追蹤系統 — 前端主程式
+ *
+ * 架構說明：
+ *  - Config     : 靜態設定（URL、工作流程關卡）
+ *  - Api        : 所有 Supabase REST API 呼叫集中於此
+ *  - Auth       : 管理員身份驗證邏輯
+ *  - State      : 唯一可變動的應用程式狀態物件
+ *  - UI.Toast   : Toast 通知系統
+ *  - UI.Loading : Loading 指示器
+ *  - UI.Render  : DOM 渲染邏輯
+ *  - App        : 高階商業邏輯，串聯 Api / State / UI
+ *
+ * 安全性注意事項（請閱讀）：
+ *  ⚠️  SUPABASE_KEY (anon key) 屬於「公開金鑰」，其安全性來自於
+ *      Supabase Row-Level Security (RLS) 政策，而非金鑰本身的保密性。
+ *      請務必在 Supabase 後台為 `documents` 資料表啟用 RLS，
+ *      並設定適當的讀寫政策，才能防止未授權存取。
+ *
+ *  ⚠️  ADMIN_PASSWORD 前端明碼驗證僅為 UI 層的保護，
+ *      無法阻止熟悉 DevTools 的使用者繞過。
+ *      正式環境建議整合 Supabase Auth（Email/OTP 或 Magic Link），
+ *      並使用 service_role token 搭配後端代理進行寫入操作。
+ *      詳見底部的「安全性升級建議」註解。
+ */
+
+'use strict';
+
+/* ══════════════════════════════════════════════════
+   Config — 所有靜態設定集中管理
+   ══════════════════════════════════════════════════ */
+const Config = Object.freeze({
+    /**
+     * Supabase 專案 URL（公開可見，安全性來自 RLS 政策）
+     * @type {string}
+     */
+    SUPABASE_URL: 'https://arosasnpwfkaiaglocex.supabase.co',
+
+    /**
+     * Supabase anon key（公開金鑰，請確保 RLS 已正確設定）
+     * @type {string}
+     */
+    SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyb3Nhc25wd2ZrYWlhZ2xvY2V4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MzU2MzcsImV4cCI6MjA5NjQxMTYzN30.0qBGNuyUTitC5fqlH2SAH4ZElm490ttcI8MmB4udDXM',
+
+    /**
+     * ⚠️ 臨時前端密碼，僅提供 UI 保護，無法阻止惡意繞過。
+     * 正式環境請改用 Supabase Auth — 詳見底部安全性建議。
+     * @type {string}
+     */
+    ADMIN_PASSWORD: 'admin123',
+
+    /** 審核關卡清單（供表單選項使用） */
+    WORKFLOW_STAGES: ['部門主管', '法務', '會計部', '採購部', '副總', '5樓(執行長.董事長)'],
+
+    /** Toast 自動消失時間（毫秒） */
+    TOAST_DURATION_MS: 3500,
+});
+
+/* ══════════════════════════════════════════════════
+   State — 集中管理可變動的應用程式狀態
+   ══════════════════════════════════════════════════ */
+const State = {
+    /** @type {Array<Object>} 從雲端取回的所有文件 */
+    allDocuments: [],
+    /** @type {Array<Object>} 搜尋過濾後的文件（用於渲染） */
+    filteredDocuments: [],
+    /** @type {boolean} 目前是否處於管理員模式 */
+    isAdmin: false,
+    /** @type {number|null} 目前選取的文件在 filteredDocuments 中的索引 */
+    currentSelectedIndex: null,
+};
+
+/* ══════════════════════════════════════════════════
+   Api — 封裝所有 Supabase REST API 呼叫
+   ══════════════════════════════════════════════════ */
+const Api = {
+    /**
+     * 產生 Supabase 請求所需的通用 Headers
+     * @returns {HeadersInit}
+     */
+    _getHeaders() {
+        return {
+            'apikey': Config.SUPABASE_KEY,
+            'Authorization': `Bearer ${Config.SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+        };
+    },
+
+    /**
+     * 從 Supabase 取得所有文件（依建立時間降冪排序）
+     * @returns {Promise<Array<Object>>} 原始 DB 資料列陣列
+     * @throws {Error} API 請求失敗時拋出
+     */
+    async fetchAll() {
+        const res = await fetch(
+            `${Config.SUPABASE_URL}/rest/v1/documents?select=*&order=created_at.desc`,
+            { headers: this._getHeaders() }
+        );
+        if (!res.ok) throw new Error(`API 請求失敗 (${res.status})`);
+        return res.json();
+    },
+
+    /**
+     * 新增一筆文件
+     * @param {Object} payload 要寫入的資料物件
+     * @returns {Promise<Object>} 已建立的資料列
+     * @throws {Error} 新增失敗時拋出
+     */
+    async insert(payload) {
+        const res = await fetch(
+            `${Config.SUPABASE_URL}/rest/v1/documents`,
+            { method: 'POST', headers: this._getHeaders(), body: JSON.stringify(payload) }
+        );
+        if (!res.ok) throw new Error(`新增資料失敗 (${res.status})`);
+        return res.json();
+    },
+
+    /**
+     * 更新指定 id 的文件
+     * @param {number|string} id 文件的資料庫 ID
+     * @param {Object} payload 要更新的欄位
+     * @returns {Promise<Object>} 已更新的資料列
+     * @throws {Error} 更新失敗時拋出
+     */
+    async update(id, payload) {
+        const res = await fetch(
+            `${Config.SUPABASE_URL}/rest/v1/documents?id=eq.${id}`,
+            { method: 'PATCH', headers: this._getHeaders(), body: JSON.stringify(payload) }
+        );
+        if (!res.ok) throw new Error(`更新資料失敗 (${res.status})`);
+        return res.json();
+    },
+
+    /**
+     * 刪除指定 id 的文件
+     * @param {number|string} id 文件的資料庫 ID
+     * @returns {Promise<void>}
+     * @throws {Error} 刪除失敗時拋出
+     */
+    async remove(id) {
+        const res = await fetch(
+            `${Config.SUPABASE_URL}/rest/v1/documents?id=eq.${id}`,
+            { method: 'DELETE', headers: this._getHeaders() }
+        );
+        if (!res.ok) throw new Error(`刪除資料失敗 (${res.status})`);
+    },
+};
+
+/* ══════════════════════════════════════════════════
+   Auth — 管理員身份驗證
+   ══════════════════════════════════════════════════ */
+const Auth = {
+    /**
+     * 開啟密碼輸入 Modal
+     */
+    openModal() {
+        const modal = document.getElementById('password-modal');
+        modal.style.display = 'flex';
+        const input = document.getElementById('modal-password-input');
+        input.value = '';
+        document.getElementById('password-error-msg').classList.add('hidden');
+        input.focus();
+    },
+
+    /** 關閉密碼 Modal */
+    closeModal() {
+        document.getElementById('password-modal').style.display = 'none';
+    },
+
+    /**
+     * 驗證輸入密碼並切換管理員模式
+     * @returns {boolean} 驗證是否通過
+     *
+     * ⚠️ 此為前端明碼比對，僅提供 UI 層保護。
+     * 正式環境請替換為 Supabase Auth 的 signInWithPassword()。
+     */
+    verify() {
+        const input = document.getElementById('modal-password-input').value;
+        if (input === Config.ADMIN_PASSWORD) {
+            State.isAdmin = true;
+            this.closeModal();
+            UI.Render.updateAuthUI();
+            UI.Toast.show('success', '已進入管理員模式');
+            // 若已選取文件，刷新詳情面板
+            if (State.currentSelectedIndex !== null) {
+                UI.Render.showDetail(State.currentSelectedIndex);
             }
+            return true;
         }
+        document.getElementById('password-error-msg').classList.remove('hidden');
+        return false;
+    },
 
-        function filterDocuments() {
-            const keyword = document.getElementById('search-input').value.trim().toLowerCase();
-            if (!keyword) {
-                filteredDocuments = [...allDocuments];
-            } else {
-                filteredDocuments = allDocuments.filter(doc => {
-                    if (!doc) return false;
-                    return (
-                        (doc.applicant && doc.applicant.toLowerCase().includes(keyword)) ||
-                        (doc.dept && doc.dept.toLowerCase().includes(keyword)) ||
-                        (doc.title && doc.title.toLowerCase().includes(keyword)) ||
-                        (String(doc.id).toLowerCase().includes(keyword)) ||
-                        (doc.content && doc.content.toLowerCase().includes(keyword))
-                    );
-                });
-            }
-            renderSystem();
-        }
+    /** 登出管理員模式 */
+    logout() {
+        State.isAdmin = false;
+        UI.Render.updateAuthUI();
+        UI.Toast.show('info', '已登出管理員模式');
+    },
+};
 
-        function showLoading(show) {
-            const loadingEl = document.getElementById('global-loading');
-            if (loadingEl) loadingEl.style.display = show ? 'flex' : 'none';
-        }
+/* ══════════════════════════════════════════════════
+   UI — 所有 DOM 操作集中於此
+   ══════════════════════════════════════════════════ */
+const UI = {
 
-        function handleAuthClick() {
-            if (!isAdmin) {
-                document.getElementById('password-modal').style.display = 'flex';
-                document.getElementById('modal-password-input').value = '';
-                document.getElementById('password-error-msg').classList.add('hidden');
-                document.getElementById('modal-password-input').focus();
-            } else {
-                isAdmin = false;
-                updateAuthUI();
-                if (currentSelectedIndex !== null && filteredDocuments[currentSelectedIndex]) {
-                    renderTimeline(filteredDocuments[currentSelectedIndex]);
-                }
-            }
-        }
+    /* ── Toast 通知系統 ── */
+    Toast: {
+        /**
+         * 顯示 Toast 通知
+         * @param {'success'|'error'|'warning'|'info'} type 通知類型
+         * @param {string} message 通知訊息
+         */
+        show(type, message) {
+            const container = document.getElementById('toast-container');
+            const styles = {
+                success: { bg: 'bg-green-600',  icon: 'fa-circle-check' },
+                error:   { bg: 'bg-red-600',    icon: 'fa-circle-xmark' },
+                warning: { bg: 'bg-amber-500',  icon: 'fa-triangle-exclamation' },
+                info:    { bg: 'bg-indigo-600', icon: 'fa-circle-info' },
+            };
+            const s = styles[type] || styles.info;
 
-        function closePasswordModal() {
-            document.getElementById('password-modal').style.display = 'none';
-        }
+            const el = document.createElement('div');
+            el.className = `toast-enter pointer-events-auto ${s.bg} text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg flex items-center gap-2`;
+            el.innerHTML = `<i class="fa-solid ${s.icon}"></i><span>${message}</span>`;
+            container.appendChild(el);
 
-        function verifyAdminPassword() {
-            const inputPwd = document.getElementById('modal-password-input').value;
-            if (inputPwd === ADMIN_PASSWORD) {
-                isAdmin = true;
-                closePasswordModal();
-                updateAuthUI();
-                if (currentSelectedIndex !== null && filteredDocuments[currentSelectedIndex]) {
-                    renderTimeline(filteredDocuments[currentSelectedIndex]);
-                }
-            } else {
-                document.getElementById('password-error-msg').classList.remove('hidden');
-            }
-        }
+            // 自動移除
+            const dismiss = () => {
+                el.classList.remove('toast-enter');
+                el.classList.add('toast-leave');
+                el.addEventListener('animationend', () => el.remove(), { once: true });
+            };
+            setTimeout(dismiss, Config.TOAST_DURATION_MS);
+        },
+    },
 
-        document.addEventListener("DOMContentLoaded", function() {
-            const pwdInput = document.getElementById('modal-password-input');
-            if (pwdInput) {
-                pwdInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') verifyAdminPassword();
-                });
-            }
+    /* ── Loading 狀態控制 ── */
+    Loading: {
+        /**
+         * 切換全域 Loading 指示器
+         * @param {boolean} show
+         */
+        setGlobal(show) {
+            const el = document.getElementById('global-loading');
+            if (el) el.style.display = show ? 'flex' : 'none';
+        },
 
-            // 重新送件 UI 顯示控制
-            document.getElementById('action-stage').addEventListener('change', function () {
-                const box = document.getElementById('resubmit-box');
-                if (this.value === "重新送件") {
-                    box.style.display = "block";
-                } else {
-                    box.style.display = "none";
-                    const input = document.getElementById('action-resubmit-note');
-                    if (input) input.value = "";
-                }
-            });
-        });
+        /**
+         * 切換特定按鈕的 Loading 狀態
+         * @param {HTMLElement} btn 目標按鈕元素
+         * @param {boolean} loading
+         */
+        setButton(btn, loading) {
+            if (!btn) return;
+            btn.classList.toggle('btn-loading', loading);
+        },
+    },
 
-        function updateAuthUI() {
-            const formSection = document.getElementById('admin-form-section');
-            const actionSection = document.getElementById('admin-action-section');
-            const authBtn = document.getElementById('auth-btn');
-            const roleBadge = document.getElementById('role-badge');
+    /* ── DOM 渲染邏輯 ── */
+    Render: {
+        /**
+         * 計算統計數字（純函數，不操作 DOM）
+         * @param {Array<Object>} docs
+         * @returns {{ total: number, pending: number, approved: number, rejected: number }}
+         */
+        _calcStats(docs) {
+            return docs.reduce((acc, doc) => {
+                acc.total++;
+                if (doc.status === '審核中')  acc.pending++;
+                if (doc.status === '已核准')  acc.approved++;
+                if (doc.status === '被駁回')  acc.rejected++;
+                return acc;
+            }, { total: 0, pending: 0, approved: 0, rejected: 0 });
+        },
 
-            if (isAdmin) {
-                formSection.classList.remove('hidden');
-                if (currentSelectedIndex !== null) {
-                    actionSection.classList.remove('hidden');
-                    setNowToDateInput();
-                }
-                authBtn.innerHTML = '<i class="fa-solid fa-lock-open mr-1"></i> 登出管理員';
-                authBtn.className = "text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition shadow-sm";
-                roleBadge.innerText = "最高管理員模式";
-                roleBadge.className = "ml-2 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 font-bold rounded";
-            } else {
-                formSection.classList.add('hidden');
-                actionSection.classList.add('hidden');
-                authBtn.innerHTML = '<i class="fa-solid fa-lock mr-1"></i> 管理員登入';
-                authBtn.className = "text-sm bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition";
-                roleBadge.innerText = "訪客唯讀模式";
-                roleBadge.className = "ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded";
-            }
-        }
+        /**
+         * 取得狀態對應的 Tailwind CSS class 字串
+         * @param {string} status
+         * @returns {string}
+         */
+        _getStatusClass(status) {
+            if (status === '已核准') return 'bg-green-100 text-green-800';
+            if (status === '被駁回') return 'bg-red-100 text-red-800';
+            return 'bg-amber-100 text-amber-800';
+        },
 
-        function renderSystem() {
+        /**
+         * 建立單一列表行的 <tr> 元素（DocumentFragment 方式，避免重複 reflow）
+         * @param {Object} doc 文件資料
+         * @param {number} index filteredDocuments 中的索引
+         * @returns {HTMLTableRowElement}
+         */
+        _buildTableRow(doc, index) {
+            const tr = document.createElement('tr');
+            const isSelected = State.currentSelectedIndex === index;
+            tr.className = `hover:bg-indigo-50/50 cursor-pointer transition ${isSelected ? 'bg-indigo-50' : ''}`;
+            tr.addEventListener('click', () => App.selectDocument(index));
+
+            const content = doc.content || '無詳細說明';
+            const statusClass = this._getStatusClass(doc.status);
+
+            // 使用 textContent 設定文字，避免 XSS 注入
+            const idCell    = document.createElement('td');
+            idCell.className = 'px-6 py-4 max-w-xs';
+            idCell.innerHTML = `
+                <div class="font-mono text-xs text-gray-400">#ID-${doc.id ?? ''}</div>
+                <div class="font-medium text-gray-900 truncate"></div>
+                <div class="text-xs text-gray-400 mt-1 bg-gray-50 p-1.5 rounded border-l border-gray-300 line-clamp-2"></div>
+            `;
+            // 安全設定文字（防止 XSS）
+            idCell.querySelector('.font-medium').textContent = doc.title ?? '';
+            idCell.querySelector('.line-clamp-2').textContent = content;
+
+            const applicantCell = document.createElement('td');
+            applicantCell.className = 'px-6 py-4 text-gray-600';
+            applicantCell.innerHTML = `<span></span><br><span class="text-xs text-gray-400"></span>`;
+            applicantCell.querySelectorAll('span')[0].textContent = doc.applicant ?? '';
+            applicantCell.querySelectorAll('span')[1].textContent = doc.dept ?? '';
+
+            const stepCell = document.createElement('td');
+            stepCell.className = 'px-6 py-4 font-medium text-gray-700';
+            stepCell.textContent = doc.currentStep ?? '';
+
+            const statusCell = document.createElement('td');
+            statusCell.className = 'px-6 py-4';
+            statusCell.innerHTML = `<span class="px-2.5 py-1 text-xs font-semibold rounded-full ${statusClass}"></span>`;
+            statusCell.querySelector('span').textContent = doc.status ?? '';
+
+            const dateCell = document.createElement('td');
+            dateCell.className = 'px-6 py-4 text-xs text-gray-400';
+            dateCell.textContent = doc.updatedAt ?? '';
+
+            tr.append(idCell, applicantCell, stepCell, statusCell, dateCell);
+            return tr;
+        },
+
+        /**
+         * 渲染整個列表與統計數字（使用 DocumentFragment 批次更新 DOM）
+         */
+        renderList() {
             const listBody = document.getElementById('document-list-body');
             if (!listBody) return;
-            listBody.innerHTML = '';
 
-            if (filteredDocuments.length === 0) {
-                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前雲端無簽呈資料，請登入管理員建立第一筆。</td></tr>';
-                document.getElementById('count-total').innerText = 0;
-                document.getElementById('count-pending').innerText = 0;
-                document.getElementById('count-approved').innerText = 0;
-                document.getElementById('count-rejected').innerText = 0;
+            const stats = this._calcStats(State.allDocuments);
+            document.getElementById('count-total').textContent    = stats.total;
+            document.getElementById('count-pending').textContent   = stats.pending;
+            document.getElementById('count-approved').textContent  = stats.approved;
+            document.getElementById('count-rejected').textContent  = stats.rejected;
+
+            if (State.filteredDocuments.length === 0) {
+                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前無符合條件的簽呈資料。</td></tr>';
                 return;
             }
 
-            let total = allDocuments.length, pending = 0, approved = 0, rejected = 0;
-            allDocuments.forEach(doc => {
-                if (!doc) return;
-                if (doc.status === '審核中') pending++;
-                else if (doc.status === '已核准') approved++;
-                else if (doc.status === '被駁回') rejected++;
+            // 用 DocumentFragment 一次性插入，減少 reflow 次數
+            const fragment = document.createDocumentFragment();
+            State.filteredDocuments.forEach((doc, index) => {
+                if (doc) fragment.appendChild(this._buildTableRow(doc, index));
             });
 
-            filteredDocuments.forEach((doc, index) => {
-                if (!doc) return;
-                let statusClass = "bg-amber-100 text-amber-800";
-                if (doc.status === '已核准') statusClass = "bg-green-100 text-green-800";
-                if (doc.status === '被駁回') statusClass = "bg-red-100 text-red-800";
+            listBody.innerHTML = '';
+            listBody.appendChild(fragment);
+        },
 
-                const displayContent = doc.content ? doc.content : "無詳細說明";
+        /**
+         * 渲染右側詳情面板
+         * @param {Object} doc 文件資料
+         */
+        renderDetail(doc) {
+            const detailSection = document.getElementById('detail-section');
+            detailSection.classList.remove('hidden');
 
-                const tr = document.createElement('tr');
-                tr.className = `hover:bg-indigo-50/50 cursor-pointer transition ${currentSelectedIndex === index ? 'bg-indigo-50' : ''}`;
-                tr.onclick = () => showDetail(index);
-                tr.innerHTML = `
-                    <td class="px-6 py-4 max-w-xs">
-                        <div class="font-mono text-xs text-gray-400">#ID-${doc.id || ''}</div>
-                        <div class="font-medium text-gray-900 truncate">${doc.title || ''}</div>
-                        <div class="text-xs text-gray-400 mt-1 bg-gray-50 p-1.5 rounded border-l border-gray-300 line-clamp-2">${displayContent}</div>
-                    </td>
-                    <td class="px-6 py-4 text-gray-600">${doc.applicant || ''}<br><span class="text-xs text-gray-400">${doc.dept || ''}</span></td>
-                    <td class="px-6 py-4 font-medium text-gray-700">${doc.currentStep || ''}</td>
-                    <td class="px-6 py-4"><span class="px-2.5 py-1 text-xs font-semibold rounded-full ${statusClass}">${doc.status || ''}</span></td>
-                    <td class="px-6 py-4 text-xs text-gray-400">${doc.updatedAt || ''}</td>
-                `;
-                listBody.appendChild(tr);
+            // 安全設定文字
+            document.getElementById('detail-id').textContent         = `#ID-${doc.id ?? ''}`;
+            document.getElementById('detail-title').textContent      = doc.title ?? '';
+            document.getElementById('detail-applicant').textContent  = doc.applicant ?? '';
+            document.getElementById('detail-dept').textContent       = doc.dept ?? '';
+            document.getElementById('detail-content').textContent    = doc.content || '無詳細說明';
+
+            const badge = document.getElementById('detail-status-badge');
+            badge.textContent = doc.status ?? '';
+            badge.className = `px-2 py-1 text-xs font-semibold rounded-full ${this._getStatusClass(doc.status)}`;
+
+            // 管理員操作面板顯示邏輯
+            if (State.isAdmin) {
+                const actionSection  = document.getElementById('admin-action-section');
+                const normalPanel   = document.getElementById('action-normal-panel');
+                const rejectedPanel = document.getElementById('action-rejected-panel');
+                actionSection.classList.remove('hidden');
+
+                const isRejected = doc.status === '被駁回';
+                normalPanel.classList.toggle('hidden', isRejected);
+                rejectedPanel.classList.toggle('hidden', !isRejected);
+
+                if (!isRejected) {
+                    document.getElementById('action-stage').value = '';
+                    document.getElementById('action-date').value  = Utils.todayString();
+                } else {
+                    document.getElementById('action-resubmit-note').value  = '';
+                    document.getElementById('action-resubmit-stage').value = '';
+                    document.getElementById('action-resubmit-date').value  = Utils.todayString();
+                }
+            }
+
+            this.renderTimeline(doc);
+        },
+
+        /**
+         * 渲染簽核歷程時間軸
+         * @param {Object} doc 文件資料
+         */
+        renderTimeline(doc) {
+            const container = document.getElementById('timelineContainer');
+            if (!container) return;
+
+            const history = Array.isArray(doc.history) ? doc.history : [];
+            if (history.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            history.forEach(node => {
+                const colorMap = { error: 'bg-red-500', pending: 'bg-amber-400' };
+                const color    = colorMap[node.status] ?? 'bg-green-500';
+
+                const item = document.createElement('div');
+                item.className = 'flex gap-4 items-start relative pb-6';
+
+                const dot = document.createElement('div');
+                dot.className = `absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white ${color}`;
+
+                const content = document.createElement('div');
+                content.className = 'pl-4';
+
+                const stage = document.createElement('p');
+                stage.className = 'text-sm font-bold text-gray-800';
+                stage.textContent = node.stage ?? '';
+
+                const time = document.createElement('p');
+                time.className = 'text-xs text-gray-500';
+                time.textContent = node.time ?? '';
+
+                const note = document.createElement('p');
+                note.className = 'text-xs text-gray-600 mt-1';
+                note.textContent = node.note ?? '';
+
+                content.append(stage, time, note);
+                item.append(dot, content);
+                fragment.appendChild(item);
             });
 
-            document.getElementById('count-total').innerText = total;
-            document.getElementById('count-pending').innerText = pending;
-            document.getElementById('count-approved').innerText = approved;
-            document.getElementById('count-rejected').innerText = rejected;
-        }
+            container.innerHTML = '';
+            container.appendChild(fragment);
+        },
 
-        function showDetail(index) {
-            if (filteredDocuments.length === 0 || filteredDocuments[index] === undefined) {
+        /**
+         * 更新導覽列的管理員/訪客 UI 狀態
+         */
+        updateAuthUI() {
+            const { isAdmin, currentSelectedIndex } = State;
+            const formSection   = document.getElementById('admin-form-section');
+            const actionSection = document.getElementById('admin-action-section');
+            const authBtn       = document.getElementById('auth-btn');
+            const roleBadge     = document.getElementById('role-badge');
+
+            formSection.classList.toggle('hidden', !isAdmin);
+
+            if (isAdmin) {
+                if (currentSelectedIndex !== null) {
+                    actionSection.classList.remove('hidden');
+                }
+                authBtn.innerHTML = '<i class="fa-solid fa-lock-open mr-1"></i> 登出管理員';
+                authBtn.className = 'text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition shadow-sm';
+                roleBadge.textContent  = '最高管理員模式';
+                roleBadge.className    = 'ml-2 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 font-bold rounded';
+            } else {
+                actionSection.classList.add('hidden');
+                authBtn.innerHTML = '<i class="fa-solid fa-lock mr-1"></i> 管理員登入';
+                authBtn.className = 'text-sm bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition';
+                roleBadge.textContent  = '訪客唯讀模式';
+                roleBadge.className    = 'ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded';
+            }
+        },
+
+        /**
+         * 顯示詳情面板（對外公開，由 App 呼叫）
+         * @param {number} index
+         */
+        showDetail(index) {
+            const doc = State.filteredDocuments[index];
+            if (!doc) {
                 document.getElementById('detail-section').classList.add('hidden');
                 return;
             }
+            State.currentSelectedIndex = index;
+            this.renderDetail(doc);
+            // 重新渲染列表以更新選取樣式
+            this.renderList();
+        },
+    },
+};
 
-            currentSelectedIndex = index;
-            const doc = filteredDocuments[index];
-            if (!doc) return;
+/* ══════════════════════════════════════════════════
+   Utils — 通用工具函數
+   ══════════════════════════════════════════════════ */
+const Utils = {
+    /**
+     * 取得今日的 YYYY-MM-DD 格式字串
+     * @param {Date} [date=new Date()]
+     * @returns {string}
+     */
+    todayString(date = new Date()) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    },
 
-            document.getElementById('detail-section').classList.remove('hidden');
-            if (isAdmin) {
-                const actionSection = document.getElementById('admin-action-section');
-                const normalPanel  = document.getElementById('action-normal-panel');
-                const rejectedPanel = document.getElementById('action-rejected-panel');
+    /**
+     * 將 Supabase 回傳的 DB 資料列正規化為應用程式使用的文件物件。
+     * 確保 DB 層的 id 與 created_at 不被 data 欄位內的同名欄位覆蓋。
+     * @param {Object} row Supabase 回傳的原始資料列
+     * @returns {Object|null}
+     */
+    normalizeDoc(row) {
+        if (!row) return null;
+        if (row.data && typeof row.data === 'object') {
+            const merged = { ...row.data };
+            merged.id         = row.id;
+            merged.created_at = row.created_at;
+            return merged;
+        }
+        return row;
+    },
 
-                actionSection.classList.remove('hidden');
+    /**
+     * 簡易的非空字串驗證
+     * @param {string} value
+     * @returns {boolean}
+     */
+    isNonEmpty(value) {
+        return typeof value === 'string' && value.trim().length > 0;
+    },
+};
 
-                if (doc.status === '被駁回') {
-                   stageSelect = document.getElementById('action-resubmit-stage')?.value;
-    dateInput = document.getElementById('action-resubmit-note')?.value;
-    noteInput = document.getElementById('action-resubmit-note')?.value.trim();
-                } else {
-                    normalPanel.classList.remove('hidden');
-                    rejectedPanel.classList.add('hidden');
-                    document.getElementById('action-stage').value = "";
-                    setNowToDateInput();
-                }
+/* ══════════════════════════════════════════════════
+   App — 高階商業邏輯
+   ══════════════════════════════════════════════════ */
+const App = {
+    /**
+     * 從雲端重新取得所有文件並刷新畫面
+     * @param {boolean} [silent=false] 是否跳過 Loading 指示器
+     */
+    async loadDocuments(silent = false) {
+        if (!silent) UI.Loading.setGlobal(true);
+        try {
+            const rows = await Api.fetchAll();
+            State.allDocuments = Array.isArray(rows)
+                ? rows.map(Utils.normalizeDoc).filter(Boolean)
+                : [];
+        } catch (err) {
+            console.error('[App.loadDocuments]', err);
+            UI.Toast.show('error', `資料載入失敗：${err.message}`);
+            State.allDocuments = [];
+        } finally {
+            // 套用目前搜尋條件後重新渲染
+            this.applyFilter();
+            if (!silent) UI.Loading.setGlobal(false);
+
+            // 刷新已選取文件的詳情
+            if (State.currentSelectedIndex !== null) {
+                const safeDoc = State.filteredDocuments[State.currentSelectedIndex];
+                UI.Render.showDetail(safeDoc ? State.currentSelectedIndex : 0);
+            } else {
+                document.getElementById('detail-section').classList.add('hidden');
             }
+        }
+    },
 
-            document.getElementById('detail-id').innerText = `#ID-${doc.id || ''}`;
-            document.getElementById('detail-title').innerText = doc.title || '';
-            document.getElementById('detail-applicant').innerText = doc.applicant || '';
-            document.getElementById('detail-dept').innerText = doc.dept || '';
-            document.getElementById('detail-content').innerText = doc.content || "無詳細說明";
+    /**
+     * 套用搜尋關鍵字過濾，並重新渲染列表
+     */
+    applyFilter() {
+        const keyword = document.getElementById('search-input').value.trim().toLowerCase();
+        State.filteredDocuments = keyword
+            ? State.allDocuments.filter(doc => {
+                if (!doc) return false;
+                return (
+                    doc.applicant?.toLowerCase().includes(keyword) ||
+                    doc.dept?.toLowerCase().includes(keyword)      ||
+                    doc.title?.toLowerCase().includes(keyword)     ||
+                    String(doc.id).includes(keyword)               ||
+                    doc.content?.toLowerCase().includes(keyword)
+                );
+              })
+            : [...State.allDocuments];
+        UI.Render.renderList();
+    },
 
-            const badge = document.getElementById('detail-status-badge');
-            if (badge) {
-                badge.innerText = doc.status || '';
-                badge.className = `px-2 py-1 text-xs font-semibold rounded-full ${
-                    doc.status === '已核准' ? 'bg-green-100 text-green-800' :
-                    doc.status === '被駁回' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
-                }`;
-            }
+    /**
+     * 選取文件並顯示詳情面板
+     * @param {number} index filteredDocuments 中的索引
+     */
+    selectDocument(index) {
+        UI.Render.showDetail(index);
+    },
 
-            renderTimeline(doc);
+    /**
+     * 新增簽呈到雲端
+     */
+    async addDocument() {
+        const title       = document.getElementById('form-title').value.trim();
+        const applicant   = document.getElementById('form-applicant').value.trim();
+        const dept        = document.getElementById('form-dept').value.trim();
+        const currentStep = document.getElementById('form-current-step').value;
+        const content     = document.getElementById('form-content').value.trim();
+
+        // 表單驗證
+        if (!Utils.isNonEmpty(title) || !Utils.isNonEmpty(applicant) || !Utils.isNonEmpty(dept)) {
+            UI.Toast.show('warning', '請填寫主旨、申請人與申請部門');
+            return;
         }
 
-        function renderTimeline(doc) {
-            if (!doc) return;
-            const timelineContainer = document.getElementById('timelineContainer');
-            if (!timelineContainer) return;
-            timelineContainer.innerHTML = '';
+        const today = Utils.todayString();
+        const newDoc = {
+            title, applicant, dept, currentStep,
+            content: content || '無詳細說明',
+            status: '審核中',
+            updatedAt: today,
+            history: [{ time: today, stage: `${currentStep}審核中`, note: '初次送審', status: 'pending' }],
+        };
 
-            let timelineData = doc.history || [];
-            if (!Array.isArray(timelineData) || timelineData.length === 0) {
-                timelineContainer.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
-                return;
-            }
-
-            timelineData.forEach((node) => {
-                const isRejected = node.status === 'error';
-                const isPending = node.status === 'pending';
-                const colorClass = isRejected ? 'bg-red-500' : (isPending ? 'bg-amber-400' : 'bg-green-500');
-                
-                const itemDiv = document.createElement('div');
-                itemDiv.className = "flex gap-4 items-start relative pb-6";
-                itemDiv.innerHTML = `
-                    <div class="absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white ${colorClass}"></div>
-                    <div class="pl-4">
-                        <p class="text-sm font-bold text-gray-800">${node.stage || ''}</p>
-                        <p class="text-xs text-gray-500">${node.time || ''}</p>
-                        <p class="text-xs text-gray-600 mt-1">${node.note || ''}</p>
-                    </div>
-                `;
-                timelineContainer.appendChild(itemDiv);
+        const btn = document.getElementById('submit-btn');
+        UI.Loading.setButton(btn, true);
+        try {
+            await Api.insert({ data: newDoc });
+            UI.Toast.show('success', '新簽呈已成功發布至雲端 🎉');
+            // 清空表單
+            ['form-title', 'form-applicant', 'form-dept', 'form-content'].forEach(id => {
+                document.getElementById(id).value = '';
             });
+            document.getElementById('form-current-step').value = '部門主管';
+            await this.loadDocuments();
+        } catch (err) {
+            console.error('[App.addDocument]', err);
+            UI.Toast.show('error', `發布失敗：${err.message}`);
+        } finally {
+            UI.Loading.setButton(btn, false);
+        }
+    },
+
+    /**
+     * 更新文件狀態（送下一關、核准結案、駁回、補正重送）
+     * @param {string} targetStatus 目標狀態字串
+     * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於 Loading 狀態）
+     */
+    async updateDocStatus(targetStatus, triggerBtn) {
+        if (State.currentSelectedIndex === null || !State.isAdmin) return;
+
+        const doc       = State.filteredDocuments[State.currentSelectedIndex];
+        const isRejectedMode = doc.status === '被駁回';
+
+        // 依照目前模式取得對應欄位的值
+        const stageVal = isRejectedMode
+            ? document.getElementById('action-resubmit-stage')?.value
+            : document.getElementById('action-stage')?.value;
+        const dateVal  = isRejectedMode
+            ? document.getElementById('action-resubmit-date')?.value
+            : document.getElementById('action-date')?.value;
+        const noteVal  = isRejectedMode
+            ? document.getElementById('action-resubmit-note')?.value.trim()
+            : document.getElementById('action-note')?.value.trim();  // ✅ 修正原始碼錯誤：此處原本讀 action-date
+
+        // 驗證：送下一關時必須選擇關卡
+        if (targetStatus === '審核中' && !stageVal) {
+            UI.Toast.show('warning', '請選擇下一個審核關卡');
+            return;
         }
 
-        // 重新送件邏輯
-        async function resubmitRejectedDoc() {
-            const doc = filteredDocuments[currentSelectedIndex];
-            const stage = document.getElementById('action-resubmit-stage').value;
-            const note = document.getElementById('action-resubmit-note').value;
-            const date = document.getElementById('action-date').value || getFormattedDateString();
-
-            if (!stage) { alert("請選擇重新送審的關卡"); return; }
-            
-            doc.status = '審核中';
-            doc.currentStep = stage;
-            doc.history.push({ time: date, stage: `${stage}審核中`, note: note || "重新送審", status: "pending" });
-            
-            await saveToCloud(doc);
-            await fetchDataFromCloud();
-            alert("已重新送審");
-        }
-
-        // 刪除邏輯
-        async function deleteDocumentFromCloud() {
-            if (!confirm("確定要刪除這筆簽呈嗎？")) return;
-            const doc = filteredDocuments[currentSelectedIndex];
-            showLoading(true);
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
-                    method: 'DELETE',
-                    headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
-                });
-                if (!response.ok) throw new Error("刪除失敗");
-                await fetchDataFromCloud();
-                alert("已刪除");
-            } catch (e) { alert(e.message); } finally { showLoading(false); }
-        }
-
-        // 啟動
-        fetchDataFromCloud();
-  // ── 管理員變更進度功能 ──────────────────────────────────────
-async function updateDocStatus(targetStatus) {
-    if (currentSelectedIndex === null || !isAdmin) return;
-
-    const doc = filteredDocuments[currentSelectedIndex];
-    let stageSelect, dateInput, noteInput;
-
-    // 根據狀態抓取對應的 input 值 
-    if (doc.status === '被駁回') {
-        stageSelect = document.getElementById('action-resubmit-stage')?.value;
-        dateInput = document.getElementById('action-resubmit-date')?.value;
-        noteInput = document.getElementById('action-resubmit-note')?.value.trim();
-    } else {
-        stageSelect = document.getElementById('action-stage')?.value;
-        dateInput = document.getElementById('action-date')?.value;
-        noteInput = document.getElementById('action-date')?.value.trim();
-    }
-
-    // 流程驗證
-    if (targetStatus === '審核中' && !stageSelect) {
-        alert("請選擇下一關卡");
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const chosenDate = dateInput || getFormattedDateString();
+        const chosenDate = dateVal || Utils.todayString();
         if (!Array.isArray(doc.history)) doc.history = [];
 
-        // 寫入本次操作的註解與歷程 
+        // 寫入本次操作歷程
         doc.history.push({
-            time: chosenDate,
-            stage: targetStatus,
-            note: noteInput || (targetStatus === '被駁回' ? "文件已駁回" : "已補正送審"),
-            status: targetStatus === "被駁回" ? "error" : "success"
+            time:   chosenDate,
+            stage:  targetStatus,
+            note:   noteVal || (targetStatus === '被駁回' ? '文件已駁回' : '已補正送審'),
+            status: targetStatus === '被駁回' ? 'error' : 'success',
         });
 
         if (targetStatus === '審核中') {
-            doc.currentStep = stageSelect;
-            doc.status = '審核中';
+            doc.currentStep = stageVal;
+            doc.status      = '審核中';
             doc.history.push({
-                time: chosenDate,
-                stage: `${stageSelect}審核中`,
-                note: "等待處理",
-                status: "pending"
+                time:   chosenDate,
+                stage:  `${stageVal}審核中`,
+                note:   '等待處理',
+                status: 'pending',
             });
         } else {
             doc.status = targetStatus;
         }
+        doc.updatedAt = chosenDate;
 
-        await saveToCloud(doc);
-        await fetchDataFromCloud();
-        alert("更新成功！");
-    } catch (err) {
-        alert("更新失敗");
-    } finally {
-        showLoading(false);
-    }
-}
-        } // 這是 updateDocStatus 的結尾
+        UI.Loading.setButton(triggerBtn, true);
+        try {
+            await Api.update(doc.id, { data: doc });
+            UI.Toast.show('success', `狀態已更新為「${targetStatus}」`);
+            await this.loadDocuments();
+        } catch (err) {
+            console.error('[App.updateDocStatus]', err);
+            UI.Toast.show('error', `更新失敗：${err.message}`);
+        } finally {
+            UI.Loading.setButton(triggerBtn, false);
+        }
+    },
 
-	// 儲存資料到 Supabase
-async function saveToCloud(doc) {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/documents?id=eq.${doc.id}`, {
-        method: 'PATCH',
-        headers: {
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`,
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
-        },
-        body: JSON.stringify({ data: doc }) // 確保結構符合您的 DB 設計
+    /**
+     * 刪除目前選取的文件
+     */
+    async deleteDocument() {
+        if (!confirm('確定要刪除這筆簽呈嗎？此操作無法復原。')) return;
+        const doc = State.filteredDocuments[State.currentSelectedIndex];
+        const btn = document.getElementById('delete-btn');
+
+        UI.Loading.setButton(btn, true);
+        try {
+            await Api.remove(doc.id);
+            State.currentSelectedIndex = null;
+            document.getElementById('detail-section').classList.add('hidden');
+            UI.Toast.show('success', '簽呈已成功刪除');
+            await this.loadDocuments();
+        } catch (err) {
+            console.error('[App.deleteDocument]', err);
+            UI.Toast.show('error', `刪除失敗：${err.message}`);
+        } finally {
+            UI.Loading.setButton(btn, false);
+        }
+    },
+};
+
+/* ══════════════════════════════════════════════════
+   事件綁定 — 集中於 DOMContentLoaded 後統一設定
+   ══════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+    // 導覽列：管理員登入 / 登出
+    document.getElementById('auth-btn').addEventListener('click', () => {
+        State.isAdmin ? Auth.logout() : Auth.openModal();
     });
-    
-    if (!response.ok) throw new Error("儲存資料至雲端失敗");
-    return await response.json();
-}
 
+    // 密碼 Modal
+    document.getElementById('modal-cancel-btn').addEventListener('click', () => Auth.closeModal());
+    document.getElementById('modal-confirm-btn').addEventListener('click', () => Auth.verify());
+    document.getElementById('modal-password-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') Auth.verify();
+    });
 
-    </script>
+    // 手動刷新
+    document.getElementById('refresh-btn').addEventListener('click', () => App.loadDocuments());
+
+    // 搜尋過濾
+    document.getElementById('search-input').addEventListener('input', () => App.applyFilter());
+
+    // 新增簽呈
+    document.getElementById('submit-btn').addEventListener('click', () => App.addDocument());
+
+    // 一般審核操作按鈕（送下一關、核准、駁回）
+    document.querySelectorAll('.action-btn[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            App.updateDocStatus(btn.dataset.action, btn);
+        });
+    });
+
+    // 補正重送按鈕
+    document.getElementById('resubmit-btn').addEventListener('click', (e) => {
+        App.updateDocStatus('審核中', e.currentTarget);
+    });
+
+    // 刪除按鈕
+    document.getElementById('delete-btn').addEventListener('click', () => App.deleteDocument());
+
+    // 初始載入資料
+    App.loadDocuments();
+});
+
+/* ══════════════════════════════════════════════════
+   🔒 安全性升級建議（正式環境請務必閱讀）
+   ══════════════════════════════════════════════════
+
+   1. Supabase anon key 洩漏風險
+      ─────────────────────────
+      anon key 本身無法被隱藏（可由 Network tab 看到），
+      其安全性完全依賴 Row-Level Security (RLS)。
+      ✅ 請到 Supabase 後台 → Authentication → Policies 啟用 RLS，
+         並設定政策，例如：
+         - SELECT: 允許所有人 (public)
+         - INSERT/UPDATE/DELETE: 僅允許 authenticated 角色
+
+   2. 管理員密碼前端驗證問題
+      ─────────────────────────
+      目前 ADMIN_PASSWORD 直接比對，任何人開啟 DevTools 即可看到。
+      建議升級路徑：
+      方案 A（簡易）：改用 Supabase Auth 的 Email / OTP 登入
+        ```javascript
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: 'admin@company.com',
+          password: userInput,
+        });
+        ```
+      方案 B（進階）：自建後端代理，前端不持有任何 service_role key，
+        所有寫入操作透過後端 API 驗證後再執行。
+
+   3. 輸入資料 XSS 防護
+      ─────────────────────────
+      本次重構已將所有使用者輸入改用 .textContent 設定，
+      避免直接 innerHTML 插入用戶資料造成 XSS 攻擊。
+
+   ══════════════════════════════════════════════════ */
+</script>
 </body>
 </html>
