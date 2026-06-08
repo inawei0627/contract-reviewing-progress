@@ -503,10 +503,7 @@
                 itemDiv.className = "flex gap-4 items-start relative pb-6"; 
 
                 // 修正 HTML5 datetime-local 的 T 格式問題
-                let formattedTimeForInput = node.time || '';
-                if (formattedTimeForInput.includes(' ') && !formattedTimeForInput.includes('T')) {
-                    formattedTimeForInput = formattedTimeForInput.replace(' ', 'T');
-                }
+let formattedTimeForInput = node.time || '';
 
                 // 判斷是否為駁回狀態
                 const isRejected = node.status === 'error' || 
@@ -541,10 +538,10 @@
                 let timeComponentHTML = '';
                 if (isAdmin && safeDocId) {
                     timeComponentHTML = `
-                        <input type="datetime-local" 
-                               class="border border-gray-300 rounded px-2 py-0.5 text-xs bg-yellow-50 focus:bg-white text-gray-700 outline-none cursor-pointer shadow-sm"
-                               value="${formattedTimeForInput}" 
-                               onchange="updateSingleTimelineTime(${safeDocId}, ${index}, this.value)">
+<input type="date"
+       class="border border-gray-300 rounded px-2 py-0.5 text-xs bg-yellow-50 focus:bg-white text-gray-700 outline-none cursor-pointer shadow-sm"
+       value="${formattedTimeForInput}"
+       onchange="updateSingleTimelineTime(${safeDocId}, ${index}, this.value)">
                     `;
                 } else {
                     timeComponentHTML = `<span class="text-gray-400 text-xs">${node.time || ''}</span>`;
@@ -572,13 +569,13 @@
         async function updateSingleTimelineTime(docId, timelineIndex, rawDateTimeInputValue) {
             if (!docId || !rawDateTimeInputValue) return;
 
-            const cleanedDatabaseTimeStr = rawDateTimeInputValue.replace('T', ' ');
+            const cleanedDatabaseTimeStr = rawDateTimeInputValue;
 
             try {
-                const docIndex = documents.findIndex(d => d.id === docId);
+                const docIndex = allDocuments.findIndex(d => d.id === docId);
                 if (docIndex === -1) throw new Error("快取中找不到該筆簽呈。");
 
-                let targetDocCopy = JSON.parse(JSON.stringify(documents[docIndex]));
+                let targetDocCopy = JSON.parse(JSON.stringify(allDocuments[docIndex]));
 
                 // 精準覆蓋陣列中對應 index 的時間
                 if (targetDocCopy.history && targetDocCopy.history[timelineIndex]) {
@@ -610,18 +607,18 @@
                 const responseDataList = await response.json();
                 
                 // 更新本機快取
-                documents[docIndex] = {
+                allDocuments[docIndex] = {
                     id: docId,
-                    created_at: documents[docIndex].created_at,
+                    created_at: allDocuments[docIndex].created_at,
                     ...responseDataList[0].data
                 };
 
                 // 同步更新全局視圖陣列
                 const allIdx = allDocuments.findIndex(d => d.id === docId);
-                if (allIdx !== -1) allDocuments[allIdx] = documents[docIndex];
+                if (allIdx !== -1) allDocuments[allIdx] = allDocuments[docIndex];
                 
                 const filterIdx = filteredDocuments.findIndex(d => d.id === docId);
-                if (filterIdx !== -1) filteredDocuments[filterIdx] = documents[docIndex];
+                if (filterIdx !== -1) filteredDocuments[filterIdx] =allDocuments[docIndex];
 
                 console.log(`[雲端同步成功] 簽呈 ID #${docId} 節點修正為: ${cleanedDatabaseTimeStr}`);
 
@@ -649,14 +646,29 @@
 
             const dateString = getFormattedDateString();
 
-            const newDoc = {
-                title: title, applicant: applicant, dept: dept, content: content,
-                currentStep: currentStep, status: "審核中", updatedAt: dateString,
-                history: [
-                    { time: dateString, stage: "填單送出", note: `新簽呈建立成功。申請人: ${applicant}(${dept})`, status: "success" },
-                    { time: dateString + " 00:00", stage: `${currentStep}審核`, note: "等待簽核中...", status: "pending" }
-                ]
-            };
+const newDoc = {
+    title: title,
+    applicant: applicant,
+    dept: dept,
+    content: content,
+    currentStep: currentStep,
+    status: "審核中",
+    updatedAt: dateString,
+    history: [
+        {
+            time: dateString,
+            stage: "填單送出",
+            note: `新簽呈建立成功。申請人: ${applicant}(${dept})`,
+            status: "success"
+        },
+ {
+    time: dateString,
+    stage: `${currentStep}審核`,
+    note: "等待簽核中...",
+    status: "pending"
+}
+    ]
+};
 
             try {
                 await fetch(`${SUPABASE_URL}/rest/v1/documents`, {
