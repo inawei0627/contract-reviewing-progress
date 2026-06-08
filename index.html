@@ -599,8 +599,7 @@
 
         // 啟動
         fetchDataFromCloud();
-    </script>
-        // ── 管理員變更進度功能 ──────────────────────────────────────
+  // ── 管理員變更進度功能 ──────────────────────────────────────
         async function updateDocStatus(targetStatus) {
             if (currentSelectedIndex === null || !isAdmin) {
                 alert("請先以管理員身分登入");
@@ -666,7 +665,8 @@
             } finally {
                 showLoading(false);
             }
-        }
+        } // 這是 updateDocStatus 的結尾
+
     </script>
 </body>
 </html>
