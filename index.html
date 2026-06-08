@@ -174,7 +174,7 @@
                                         <option value="副總">副總</option>
                                         <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
                                     </select>
-                                    <input type="date" id="action-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
+                                    <input type="date" id="action-resubmit-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
                                 </div>
                                 <input type="text" id="action-note" placeholder="簽核評語/意見、駁回理由 (選填)" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white">
                                 <div class="flex gap-2 pt-1">
@@ -205,7 +205,7 @@
                                         <option value="副總">副總</option>
                                         <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
                                     </select>
-                                    <input type="date" id="action-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
+                                    <input type="date" id="action-resubmit-date" class="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
                                 </div>
                                 <button onclick="updateDocStatus('審核中')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 font-bold rounded transition flex items-center justify-center gap-1.5">
                                     <i class="fa-solid fa-paper-plane"></i> 確認補正，重新送審
@@ -595,71 +595,64 @@
         // 啟動
         fetchDataFromCloud();
   // ── 管理員變更進度功能 ──────────────────────────────────────
-        async function updateDocStatus(targetStatus) {
-            if (currentSelectedIndex === null || !isAdmin) {
-                alert("請先以管理員身分登入");
-                return;
-            }
+async function updateDocStatus(targetStatus) {
+    if (currentSelectedIndex === null || !isAdmin) return;
 
-            const doc = filteredDocuments[currentSelectedIndex];
-            if (!doc) return;
+    const doc = filteredDocuments[currentSelectedIndex];
+    let stageSelect, dateInput, noteInput;
 
-            // 根據簽呈狀態決定要抓取哪個 UI 的值
-            let stageSelect, dateInput, noteInput;
+    // 根據狀態抓取對應的 input 值 
+    if (doc.status === '被駁回') {
+        stageSelect = document.getElementById('action-resubmit-stage')?.value;
+        dateInput = document.getElementById('action-resubmit-date')?.value;
+        noteInput = document.getElementById('action-resubmit-note')?.value.trim();
+    } else {
+        stageSelect = document.getElementById('action-stage')?.value;
+        dateInput = document.getElementById('action-date')?.value;
+        noteInput = document.getElementById('action-note')?.value.trim();
+    }
 
-            if (doc.status === '被駁回') {
-                stageSelect = document.getElementById('action-resubmit-stage')?.value;
-                dateInput = document.getElementById('action-resubmit-date')?.value;
-                noteInput = document.getElementById('action-resubmit-note')?.value.trim();
-            } else {
-                stageSelect = document.getElementById('action-stage')?.value;
-                dateInput = document.getElementById('action-date')?.value;
-                noteInput = document.getElementById('action-note')?.value.trim();
-            }
+    // 流程驗證
+    if (targetStatus === '審核中' && !stageSelect) {
+        alert("請選擇下一關卡");
+        return;
+    }
 
-            // 流程驗證
-            if (targetStatus === '審核中' && !stageSelect) {
-                alert("請選擇下一關卡");
-                return;
-            }
+    showLoading(true);
+    try {
+        const chosenDate = dateInput || getFormattedDateString();
+        if (!Array.isArray(doc.history)) doc.history = [];
 
-            showLoading(true);
+        // 寫入本次操作的註解與歷程 
+        doc.history.push({
+            time: chosenDate,
+            stage: targetStatus,
+            note: noteInput || (targetStatus === '被駁回' ? "文件已駁回" : "已補正送審"),
+            status: targetStatus === "被駁回" ? "error" : "success"
+        });
 
-            try {
-                const chosenDate = dateInput || getFormattedDateString();
-                if (!Array.isArray(doc.history)) doc.history = [];
+        if (targetStatus === '審核中') {
+            doc.currentStep = stageSelect;
+            doc.status = '審核中';
+            doc.history.push({
+                time: chosenDate,
+                stage: `${stageSelect}審核中`,
+                note: "等待處理",
+                status: "pending"
+            });
+        } else {
+            doc.status = targetStatus;
+        }
 
-                // 加入紀錄
-                doc.history.push({
-                    time: chosenDate,
-                    stage: targetStatus,
-                    note: noteInput || `${doc.currentStep || '處理'} 完畢`,
-                    status: targetStatus === "被駁回" ? "error" : "success"
-                });
-
-                if (targetStatus === '審核中') {
-                    doc.currentStep = stageSelect;
-                    doc.status = '審核中';
-                    doc.history.push({
-                        time: chosenDate,
-                        stage: `${stageSelect}審核中`,
-                        note: "等待處理",
-                        status: "pending"
-                    });
-                } else {
-                    doc.status = targetStatus;
-                }
-
-                // 呼叫雲端更新
-                await saveToCloud(doc);
-                await fetchDataFromCloud();
-                alert("更新成功！");
-            } catch (err) {
-                console.error("更新錯誤:", err);
-                alert("更新失敗，請檢查 Console");
-            } finally {
-                showLoading(false);
-            }
+        await saveToCloud(doc);
+        await fetchDataFromCloud();
+        alert("更新成功！");
+    } catch (err) {
+        alert("更新失敗");
+    } finally {
+        showLoading(false);
+    }
+}
         } // 這是 updateDocStatus 的結尾
 
 	// 儲存資料到 Supabase
