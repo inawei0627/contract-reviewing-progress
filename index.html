@@ -969,7 +969,7 @@ const App = {
      * @param {string} targetStatus 目標狀態字串
      * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於 Loading 狀態）
      */
-updateDocStatus: async function(targetStatus, triggerBtn) {
+    updateDocStatus: async function(targetStatus, triggerBtn) {
         if (State.currentSelectedIndex === null || !State.isAdmin) return;
 
         const doc = State.filteredDocuments[State.currentSelectedIndex];
@@ -1030,6 +1030,7 @@ updateDocStatus: async function(targetStatus, triggerBtn) {
             UI.setLoading(triggerBtn, false);
         }
     },
+
     
         const chosenDate = dateVal || Utils.todayString();
         if (!Array.isArray(doc.history)) doc.history = [];
