@@ -1,3 +1,204 @@
+
+Claude finished the response
+
+document-tracker.html
+html
+
+我目前的系統在管理員更新簽呈狀態時，無法讓管理員手動指定「該歷程發生的時間」。即便管理員在 UI 上選了日期，系統仍傾向使用當下時間。
+請協助我修改 updateDocStatus 函式，達成以下目標：
+
+時間邏輯優先權：確保 updateDocStatus 函式中，變數 chosenDate 必須優先採用管理員在對應 input (如 action-date 或 action-resubmit-date) 所選取的日期值 。
+歷程寫入一致性：無論是「轉往下一關」或是「駁回」，doc.history.push 時，強制帶入該 chosenDate，不要使用預設的 getFormattedDateString() 。
+防呆處理：如果 dateInput 為空（表示管理員未選），則自動預設為「今日日期」，而非發生錯誤 。
+UI 同步：請檢查 setNowToDateInput 的邏輯，確保在打開管理員操作面板時，日期選擇器預設顯示為「今日」，但允許管理員隨時覆蓋。
+Show more
+6月8日
+
+Read the uploaded HTML file
+Read the uploaded HTML file
+Let me see the truncated part of the file, especially the relevant functions:
+
+
+Viewed 2 files
+Viewed 2 files
+現在我已完整閱讀程式碼。讓我分析目前狀況：
+
+現狀分析：
+
+updateDocStatus 和 _readActionFields 已經有正確架構（chosenDate = dateVal || Utils.todayString()），邏輯上是對的
+但問題在於 renderDetail 中的 setNowToDateInput 邏輯：isNewDoc 的判斷僅在「切換文件」時重設，但兩個面板的日期都只在 isRejected 條件的其中一個分支設定，另一面板的日期欄位不會被初始化
+實際問題：當文件狀態為 審核中（非駁回），action-resubmit-date 永遠不會被預設為今日；反之被駁回時 action-date 也不初始化。且原始版本的 updateDocStatus 若是舊版本，可能根本沒有 chosenDate 邏輯。
+
+讓我複製並修正檔案：
+
+
+Ran a command, viewed a file
+Ran a command, viewed a file
+現在我清楚所有問題點了。進行修正：
+
+問題 1 & 2：renderDetail 日期初始化只設定當前顯示的面板，另一面板被跳過，造成第一次開啟時日期欄位可能為空。兩個面板都應該在 isNewDoc 時初始化。
+
+問題 3（防呆）：_readActionFields 中若 ?.value 取得 null/undefined 而非空字串，|| fallback 可能失效。
+
+問題 4（UI 同步）：isRejected 的 if/else 只初始化其中一組面板，導致切換文件後另一面板日期可能殘留舊值。
+
+
+Edited 3 files
+Edited 3 files
+現在更新 updateDocStatus 的 JSDoc 和 history.push 的行內說明，讓邏輯描述更清晰：
+
+
+Viewed 2 files, edited a file
+Viewed 2 files, edited a file
+updateDocStatus 的邏輯已經是正確的。現在只剩下更新 JSDoc 說明，讓它清楚反映四個需求。用 bash 來做比較安全：
+
+
+Update the JSDoc comment for updateDocStatus using Python to avoid str_replace encoding issues
+Update the JSDoc comment for updateDocStatus using Python to avoid str_replace encoding issues
+現在驗證所有改動的正確性：
+
+
+Verify all key changes are in place
+Verify all key changes are in place
+所有修改都正確到位。將檔案複製到輸出目錄：
+
+
+Ran a command, read a file
+Ran a command, read a file
+以下是這次修改的完整說明：
+
+修改摘要
+問題根因
+原本 renderDetail 在 isNewDoc 時，只初始化「當前顯示的面板」的日期欄位（用 if (!isRejected) { ... } else { ... }），另一個面板的日期欄位會殘留上一份文件的值（或空白）。這導致當管理員切換文件後，若文件狀態剛好不同，那個「隱藏面板」的日期就可能是髒資料。
+
+修改 1 — renderDetail（需求 4：UI 同步）
+改前：if (!isRejected) { 初始化一般面板 } else { 初始化補正面板 }，只初始化其一。
+
+改後：兩個面板在 isNewDoc 時都重設，日期都預設為今日，讓管理員開啟任何文件時，兩組日期欄位都是乾淨的起點。isNewDoc = false 時完全不動，保留管理員手動選好的值。
+
+js
+// 一般面板
+document.getElementById('action-date').value  = today;   // ✅ 兩面板都初始化
+// 補正面板
+document.getElementById('action-resubmit-date').value  = today; // ✅
+修改 2 — _readActionFields（需求 1 & 3：優先權 + 防呆）
+改前：使用 ?.value ?? ''，?? 只攔截 null/undefined，若瀏覽器回傳空字串 ''，chosenDate = '' || todayString() 的防呆仍然能觸發——但 .trim() ?? '' 這條路徑中，若 .value 為 undefined 再呼叫 .trim() 會丟出例外。
+
+改後：統一改成 ?.value || ''，並將 .trim() 改為 (... || '').trim()，確保：
+
+無論 DOM 元素是否存在，永遠回傳字串
+noteVal 不會因為 undefined.trim() 而拋出錯誤
+修改 3 — updateDocStatus JSDoc（需求 1、2、3 說明對齊）
+更新說明文字，明確標記四項需求對應的程式碼位置，方便日後維護。chosenDate 和 history.push 的邏輯本身已正確，無需調整。
+
+
+Document tracker
+Code · HTML 
+不是 我的意思是:我希望簽呈送出後，管理員能夠在後台自行調整送件時間
+比如原本輸入簽呈的時間是115/6/8，但管理員在後台能自行改成115/6/4
+
+6月8日
+了解了！你的需求是：在簽呈新增時，讓管理員可以手動指定「送件日期」，而不是強制使用今天。
+
+目前 addDocument 的邏輯是：
+
+js
+const today = Utils.todayString();
+const newDoc = {
+    ...
+    updatedAt: today,
+    history: [{ time: today, stage: `${currentStep}審核中`, note: '初次送審', ... }],
+};
+日期寫死為 today，沒有讓管理員選擇的入口。
+
+我需要做兩件事：
+
+HTML：在新增簽呈表單裡加一個日期選擇器，預設今日但可改
+JS：addDocument 讀取這個日期欄位，chosenDate || todayString() 防呆後寫入
+
+Viewed a file, edited a file, ran a command
+Viewed a file, edited a file, ran a command
+現在修改 addDocument 讀取這個欄位，並在表單清空時也重設日期：
+
+
+Update addDocument to use form-submit-date
+Update addDocument to use form-submit-date
+最後，在管理員登入後顯示新增表單時，讓日期欄位預設為今日：
+
+
+Ran 2 commands, read a file
+Ran 2 commands, read a file
+修改內容如下：
+
+改了哪些地方
+1. HTML 表單新增「送件日期」欄位（id="form-submit-date"）
+
+放在「內容說明」與「發布」按鈕之間，標籤說明「可往前回填，預設今日」，讓用途一目瞭然。
+
+2. addDocument 讀取日期
+
+js
+// 之前
+const today = Utils.todayString();
+updatedAt: today,
+history: [{ time: today, ... }]
+
+// 之後
+const submitDate = document.getElementById('form-submit-date')?.value || Utils.todayString();
+updatedAt: submitDate,
+history: [{ time: submitDate, ... }]
+管理員填了就用填的，沒填就自動用今日，不會出錯。
+
+3. 表單送出後重設日期
+
+原本只清空文字欄位，現在送出後日期也會重設回今日，下次新增不會沿用上次的日期。
+
+4. 管理員登入時初始化日期
+
+登入後如果日期欄位是空的，自動填入今日——確保第一次看到的是有效預設值，但管理員隨時可以改。
+
+
+Document tracker
+Code · HTML 
+1780931955244_image.png
+我的意思是我要在"簽核歷程時間軸"修改各部門的審核時間
+
+6月8日
+明白了！你要的是在「簽核歷程時間軸」上，讓管理員可以點擊某筆歷程，直接編輯那個節點的時間。
+
+讓我先看目前的時間軸渲染邏輯：
+
+
+Viewed 2 files
+Viewed 2 files
+已經有這個功能的雛形了，但還沒完工——timeEl.disabled = true 之後就沒有還原，而且 App 在這個閉包裡可能有前向參照問題。讓我把整段完整重寫，讓它正確運作：
+
+
+Ran 2 commands, read a file
+Ran 2 commands, read a file
+修改內容
+管理員登入後，時間軸上每一筆歷程的日期會變成可點擊的日期選擇器，選完日期後自動儲存，不需要額外按鈕。
+
+具體行為：
+
+點擊日期 → 跳出日期選擇器，可以改成任意日期（如 115/6/4）
+選完後自動儲存 → 顯示「儲存中…」旋轉提示，成功後 Toast 通知「『法務審核中』的時間已更新為 2026-06-04」
+若是最後一筆歷程，列表上的「更新時間」欄位也會同步修改
+儲存失敗時，日期自動還原為修改前的值，讓管理員重試
+訪客模式下日期仍是純文字，不可編輯
+
+Document tracker
+Code · HTML 
+
+
+
+
+
+Claude is AI and can make mistakes. Please double-check responses.
+
+
+raw
+Document tracker · HTML
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -18,7 +219,7 @@
         }
         .toast-enter  { animation: slideInRight .3s ease forwards; }
         .toast-leave  { animation: fadeOut .4s ease forwards; }
-
+ 
         /* 按鈕 Loading Spinner */
         .btn-loading { pointer-events: none; opacity: .7; }
         .btn-loading .btn-text { display: none; }
@@ -27,7 +228,7 @@
     </style>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen">
-
+ 
 <!-- ───────────── 頂部導覽列 ───────────── -->
 <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -48,13 +249,13 @@
         </div>
     </div>
 </nav>
-
+ 
 <!-- ───────────── Toast 容器 ───────────── -->
 <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-2 w-80 pointer-events-none"></div>
-
+ 
 <!-- ───────────── 主內容 ───────────── -->
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
+ 
     <!-- 統計卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
         <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
@@ -86,7 +287,7 @@
             </div>
         </div>
     </div>
-
+ 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- 簽呈列表 -->
         <div class="lg:col-span-2 space-y-6">
@@ -128,7 +329,7 @@
                 </div>
             </div>
         </div>
-
+ 
         <!-- 右側面板 -->
         <div class="space-y-6">
             <!-- 新增簽呈表單（管理員專用） -->
@@ -171,6 +372,14 @@
                         <textarea id="form-content" rows="3" placeholder="請輸入簽呈詳細事由..."
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500"></textarea>
                     </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">
+                            送件日期
+                            <span class="text-gray-400 font-normal ml-1">（可往前回填，預設今日）</span>
+                        </label>
+                        <input type="date" id="form-submit-date"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
+                    </div>
                     <button id="submit-btn"
                         class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm flex justify-center items-center gap-2">
                         <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
@@ -178,7 +387,7 @@
                     </button>
                 </div>
             </div>
-
+ 
             <!-- 簽呈詳情面板 -->
             <div id="detail-section" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
                 <div class="flex justify-between items-start border-b pb-3 mb-4">
@@ -188,15 +397,15 @@
                     </div>
                     <span id="detail-status-badge" class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">狀態</span>
                 </div>
-
+ 
                 <div class="text-xs text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg space-y-1">
                     <p><strong>申請人：</strong><span id="detail-applicant">--</span> (<span id="detail-dept">--</span>)</p>
                     <p><strong>事由：</strong><span id="detail-content">--</span></p>
                 </div>
-
+ 
                 <!-- 管理員操作區 -->
                 <div id="admin-action-section" class="mb-5 rounded-lg border hidden">
-
+ 
                     <!-- ① 一般審核中模式 -->
                     <div id="action-normal-panel" class="p-3 bg-amber-50 border-amber-200 rounded-lg">
                         <p class="text-xs font-bold text-amber-800 mb-2">
@@ -237,7 +446,7 @@
                             </div>
                         </div>
                     </div>
-
+ 
                     <!-- ② 被駁回補正送審模式 -->
                     <div id="action-rejected-panel" class="p-3 bg-red-50 border-red-200 rounded-lg hidden">
                         <p class="text-xs font-bold text-red-700 mb-1 flex items-center gap-1">
@@ -268,7 +477,7 @@
                             </button>
                         </div>
                     </div>
-
+ 
                     <div class="border-t border-gray-200 pt-2 flex justify-end px-3 pb-2 mt-1">
                         <button id="delete-btn"
                             class="text-xs text-red-600 hover:text-red-800 font-semibold bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition flex items-center gap-1">
@@ -277,14 +486,14 @@
                         </button>
                     </div>
                 </div>
-
+ 
                 <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">簽核歷程時間軸</h4>
                 <div id="timelineContainer" class="relative border-l-2 border-gray-200 ml-2 space-y-4 pb-2"></div>
             </div>
         </div>
     </div>
 </main>
-
+ 
 <!-- ───────────── 密碼 Modal ───────────── -->
 <div id="password-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 mx-4">
@@ -306,7 +515,7 @@
         </div>
     </div>
 </div>
-
+ 
 <!-- ───────────── 主要 JavaScript（模組化命名空間） ───────────── -->
 <script>
 /**
@@ -334,9 +543,9 @@
  *      並使用 service_role token 搭配後端代理進行寫入操作。
  *      詳見底部的「安全性升級建議」註解。
  */
-
+ 
 'use strict';
-
+ 
 /* ══════════════════════════════════════════════════
    Config — 所有靜態設定集中管理
    ══════════════════════════════════════════════════ */
@@ -346,27 +555,27 @@ const Config = Object.freeze({
      * @type {string}
      */
     SUPABASE_URL: 'https://arosasnpwfkaiaglocex.supabase.co',
-
+ 
     /**
      * Supabase anon key（公開金鑰，請確保 RLS 已正確設定）
      * @type {string}
      */
     SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyb3Nhc25wd2ZrYWlhZ2xvY2V4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MzU2MzcsImV4cCI6MjA5NjQxMTYzN30.0qBGNuyUTitC5fqlH2SAH4ZElm490ttcI8MmB4udDXM',
-
+ 
     /**
      * ⚠️ 臨時前端密碼，僅提供 UI 保護，無法阻止惡意繞過。
      * 正式環境請改用 Supabase Auth — 詳見底部安全性建議。
      * @type {string}
      */
     ADMIN_PASSWORD: 'admin123',
-
+ 
     /** 審核關卡清單（供表單選項使用） */
     WORKFLOW_STAGES: ['部門主管', '法務', '會計部', '採購部', '副總', '5樓(執行長.董事長)'],
-
+ 
     /** Toast 自動消失時間（毫秒） */
     TOAST_DURATION_MS: 3500,
 });
-
+ 
 /* ══════════════════════════════════════════════════
    State — 集中管理可變動的應用程式狀態
    ══════════════════════════════════════════════════ */
@@ -380,7 +589,7 @@ const State = {
     /** @type {number|null} 目前選取的文件在 filteredDocuments 中的索引 */
     currentSelectedIndex: null,
 };
-
+ 
 /* ══════════════════════════════════════════════════
    Api — 封裝所有 Supabase REST API 呼叫
    ══════════════════════════════════════════════════ */
@@ -397,7 +606,7 @@ const Api = {
             'Prefer': 'return=representation',
         };
     },
-
+ 
     /**
      * 從 Supabase 取得所有文件（依建立時間降冪排序）
      * @returns {Promise<Array<Object>>} 原始 DB 資料列陣列
@@ -411,7 +620,7 @@ const Api = {
         if (!res.ok) throw new Error(`API 請求失敗 (${res.status})`);
         return res.json();
     },
-
+ 
     /**
      * 新增一筆文件
      * @param {Object} payload 要寫入的資料物件
@@ -426,7 +635,7 @@ const Api = {
         if (!res.ok) throw new Error(`新增資料失敗 (${res.status})`);
         return res.json();
     },
-
+ 
     /**
      * 更新指定 id 的文件
      * @param {number|string} id 文件的資料庫 ID
@@ -442,7 +651,7 @@ const Api = {
         if (!res.ok) throw new Error(`更新資料失敗 (${res.status})`);
         return res.json();
     },
-
+ 
     /**
      * 刪除指定 id 的文件
      * @param {number|string} id 文件的資料庫 ID
@@ -457,7 +666,7 @@ const Api = {
         if (!res.ok) throw new Error(`刪除資料失敗 (${res.status})`);
     },
 };
-
+ 
 /* ══════════════════════════════════════════════════
    Auth — 管理員身份驗證
    ══════════════════════════════════════════════════ */
@@ -473,12 +682,12 @@ const Auth = {
         document.getElementById('password-error-msg').classList.add('hidden');
         input.focus();
     },
-
+ 
     /** 關閉密碼 Modal */
     closeModal() {
         document.getElementById('password-modal').style.display = 'none';
     },
-
+ 
     /**
      * 驗證輸入密碼並切換管理員模式
      * @returns {boolean} 驗證是否通過
@@ -502,7 +711,7 @@ const Auth = {
         document.getElementById('password-error-msg').classList.remove('hidden');
         return false;
     },
-
+ 
     /** 登出管理員模式 */
     logout() {
         State.isAdmin = false;
@@ -510,12 +719,12 @@ const Auth = {
         UI.Toast.show('info', '已登出管理員模式');
     },
 };
-
+ 
 /* ══════════════════════════════════════════════════
    UI — 所有 DOM 操作集中於此
    ══════════════════════════════════════════════════ */
 const UI = {
-
+ 
     /* ── Toast 通知系統 ── */
     Toast: {
         /**
@@ -532,12 +741,12 @@ const UI = {
                 info:    { bg: 'bg-indigo-600', icon: 'fa-circle-info' },
             };
             const s = styles[type] || styles.info;
-
+ 
             const el = document.createElement('div');
             el.className = `toast-enter pointer-events-auto ${s.bg} text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg flex items-center gap-2`;
             el.innerHTML = `<i class="fa-solid ${s.icon}"></i><span>${message}</span>`;
             container.appendChild(el);
-
+ 
             // 自動移除
             const dismiss = () => {
                 el.classList.remove('toast-enter');
@@ -547,7 +756,7 @@ const UI = {
             setTimeout(dismiss, Config.TOAST_DURATION_MS);
         },
     },
-
+ 
     /* ── Loading 狀態控制 ── */
     Loading: {
         /**
@@ -558,7 +767,7 @@ const UI = {
             const el = document.getElementById('global-loading');
             if (el) el.style.display = show ? 'flex' : 'none';
         },
-
+ 
         /**
          * 切換特定按鈕的 Loading 狀態
          * @param {HTMLElement} btn 目標按鈕元素
@@ -569,7 +778,7 @@ const UI = {
             btn.classList.toggle('btn-loading', loading);
         },
     },
-
+ 
     /* ── DOM 渲染邏輯 ── */
     Render: {
         /**
@@ -586,7 +795,7 @@ const UI = {
                 return acc;
             }, { total: 0, pending: 0, approved: 0, rejected: 0 });
         },
-
+ 
         /**
          * 取得狀態對應的 Tailwind CSS class 字串
          * @param {string} status
@@ -597,7 +806,7 @@ const UI = {
             if (status === '被駁回') return 'bg-red-100 text-red-800';
             return 'bg-amber-100 text-amber-800';
         },
-
+ 
         /**
          * 建立單一列表行的 <tr> 元素（DocumentFragment 方式，避免重複 reflow）
          * @param {Object} doc 文件資料
@@ -609,10 +818,10 @@ const UI = {
             const isSelected = State.currentSelectedIndex === index;
             tr.className = `hover:bg-indigo-50/50 cursor-pointer transition ${isSelected ? 'bg-indigo-50' : ''}`;
             tr.addEventListener('click', () => App.selectDocument(index));
-
+ 
             const content = doc.content || '無詳細說明';
             const statusClass = this._getStatusClass(doc.status);
-
+ 
             // 使用 textContent 設定文字，避免 XSS 注入
             const idCell    = document.createElement('td');
             idCell.className = 'px-6 py-4 max-w-xs';
@@ -624,58 +833,58 @@ const UI = {
             // 安全設定文字（防止 XSS）
             idCell.querySelector('.font-medium').textContent = doc.title ?? '';
             idCell.querySelector('.line-clamp-2').textContent = content;
-
+ 
             const applicantCell = document.createElement('td');
             applicantCell.className = 'px-6 py-4 text-gray-600';
             applicantCell.innerHTML = `<span></span><br><span class="text-xs text-gray-400"></span>`;
             applicantCell.querySelectorAll('span')[0].textContent = doc.applicant ?? '';
             applicantCell.querySelectorAll('span')[1].textContent = doc.dept ?? '';
-
+ 
             const stepCell = document.createElement('td');
             stepCell.className = 'px-6 py-4 font-medium text-gray-700';
             stepCell.textContent = doc.currentStep ?? '';
-
+ 
             const statusCell = document.createElement('td');
             statusCell.className = 'px-6 py-4';
             statusCell.innerHTML = `<span class="px-2.5 py-1 text-xs font-semibold rounded-full ${statusClass}"></span>`;
             statusCell.querySelector('span').textContent = doc.status ?? '';
-
+ 
             const dateCell = document.createElement('td');
             dateCell.className = 'px-6 py-4 text-xs text-gray-400';
             dateCell.textContent = doc.updatedAt ?? '';
-
+ 
             tr.append(idCell, applicantCell, stepCell, statusCell, dateCell);
             return tr;
         },
-
+ 
         /**
          * 渲染整個列表與統計數字（使用 DocumentFragment 批次更新 DOM）
          */
         renderList() {
             const listBody = document.getElementById('document-list-body');
             if (!listBody) return;
-
+ 
             const stats = this._calcStats(State.allDocuments);
             document.getElementById('count-total').textContent    = stats.total;
             document.getElementById('count-pending').textContent   = stats.pending;
             document.getElementById('count-approved').textContent  = stats.approved;
             document.getElementById('count-rejected').textContent  = stats.rejected;
-
+ 
             if (State.filteredDocuments.length === 0) {
                 listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前無符合條件的簽呈資料。</td></tr>';
                 return;
             }
-
+ 
             // 用 DocumentFragment 一次性插入，減少 reflow 次數
             const fragment = document.createDocumentFragment();
             State.filteredDocuments.forEach((doc, index) => {
                 if (doc) fragment.appendChild(this._buildTableRow(doc, index));
             });
-
+ 
             listBody.innerHTML = '';
             listBody.appendChild(fragment);
         },
-
+ 
         /**
          * 渲染右側詳情面板
          *
@@ -691,50 +900,50 @@ const UI = {
         renderDetail(doc, isNewDoc = false) {
             const detailSection = document.getElementById('detail-section');
             detailSection.classList.remove('hidden');
-
+ 
             // 安全設定文字
             document.getElementById('detail-id').textContent         = `#ID-${doc.id ?? ''}`;
             document.getElementById('detail-title').textContent      = doc.title ?? '';
             document.getElementById('detail-applicant').textContent  = doc.applicant ?? '';
             document.getElementById('detail-dept').textContent       = doc.dept ?? '';
             document.getElementById('detail-content').textContent    = doc.content || '無詳細說明';
-
+ 
             const badge = document.getElementById('detail-status-badge');
             badge.textContent = doc.status ?? '';
             badge.className = `px-2 py-1 text-xs font-semibold rounded-full ${this._getStatusClass(doc.status)}`;
-
+ 
             // 管理員操作面板顯示邏輯
             if (State.isAdmin) {
                 const actionSection = document.getElementById('admin-action-section');
                 const normalPanel   = document.getElementById('action-normal-panel');
                 const rejectedPanel = document.getElementById('action-rejected-panel');
                 actionSection.classList.remove('hidden');
-
+ 
                 const isRejected = doc.status === '被駁回';
                 normalPanel.classList.toggle('hidden', isRejected);
                 rejectedPanel.classList.toggle('hidden', !isRejected);
-
+ 
                 // ✅ 只在切換文件時重設表單，避免覆蓋管理員已手動選好的日期
                 if (isNewDoc) {
                     const today = Utils.todayString();
-                    if (!isRejected) {
-                        // 一般面板：重設關卡、日期（預設今日）、評語
-                        document.getElementById('action-stage').value = '';
-                        document.getElementById('action-date').value  = today;
-                        document.getElementById('action-note').value  = '';
-                    } else {
-                        // 補正面板：重設補正說明、關卡、日期（預設今日）
-                        document.getElementById('action-resubmit-note').value  = '';
-                        document.getElementById('action-resubmit-stage').value = '';
-                        document.getElementById('action-resubmit-date').value  = today;
-                    }
+ 
+                    // ── 一般審核面板（無論當前是否顯示都一律重設）──
+                    // 確保下次切換回一般文件時，日期已預設為今日，不會殘留舊文件的值
+                    document.getElementById('action-stage').value = '';
+                    document.getElementById('action-date').value  = today;   // ✅ 預設今日，管理員可隨時覆蓋
+                    document.getElementById('action-note').value  = '';
+ 
+                    // ── 補正重送面板（同上，無論當前是否顯示都一律重設）──
+                    document.getElementById('action-resubmit-note').value  = '';
+                    document.getElementById('action-resubmit-stage').value = '';
+                    document.getElementById('action-resubmit-date').value  = today; // ✅ 預設今日，管理員可隨時覆蓋
                 }
                 // isNewDoc = false 時：保留管理員已輸入的日期與其他欄位值，不做任何覆蓋
             }
-
+ 
             this.renderTimeline(doc);
         },
-
+ 
         /**
          * 渲染簽核歷程時間軸
          * @param {Object} doc 文件資料
@@ -742,48 +951,94 @@ const UI = {
         renderTimeline(doc) {
             const container = document.getElementById('timelineContainer');
             if (!container) return;
-
+ 
             const history = Array.isArray(doc.history) ? doc.history : [];
             if (history.length === 0) {
                 container.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
                 return;
             }
-
+ 
             const fragment = document.createDocumentFragment();
-            history.forEach(node => {
+            history.forEach((node, idx) => {
                 const colorMap = { error: 'bg-red-500', pending: 'bg-amber-400' };
                 const color    = colorMap[node.status] ?? 'bg-green-500';
-
+ 
                 const item = document.createElement('div');
                 item.className = 'flex gap-4 items-start relative pb-6';
-
+ 
                 const dot = document.createElement('div');
                 dot.className = `absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white ${color}`;
-
+ 
                 const content = document.createElement('div');
                 content.className = 'pl-4';
-
+ 
                 const stage = document.createElement('p');
                 stage.className = 'text-sm font-bold text-gray-800';
                 stage.textContent = node.stage ?? '';
-
-                const time = document.createElement('p');
-                time.className = 'text-xs text-gray-500';
-                time.textContent = node.time ?? '';
-
+ 
+                // ── 日期欄位：管理員模式下為可編輯的 date input，訪客模式為純文字 ──
+                let timeEl;
+                if (State.isAdmin) {
+                    // 外層 wrapper：讓 input 與「儲存中」提示並排
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'flex items-center gap-2 mt-0.5';
+ 
+                    timeEl = document.createElement('input');
+                    timeEl.type = 'date';
+                    timeEl.value = node.time ?? '';
+                    timeEl.className = 'text-xs text-indigo-600 border border-dashed border-indigo-300 rounded px-1 py-0.5 bg-transparent focus:outline-none focus:border-indigo-500 focus:bg-indigo-50 cursor-pointer transition';
+                    timeEl.title = '點擊修改此歷程的日期，修改後自動儲存';
+ 
+                    // 儲存中提示（預設隱藏）
+                    const saving = document.createElement('span');
+                    saving.className = 'text-xs text-indigo-400 hidden';
+                    saving.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin mr-1"></i>儲存中…';
+ 
+                    // 修改日期後自動儲存到雲端
+                    timeEl.addEventListener('change', async () => {
+                        const newDate = timeEl.value || Utils.todayString();
+                        doc.history[idx].time = newDate;
+                        // 若此節點是最後一筆，連帶更新列表的「更新時間」欄位
+                        if (idx === doc.history.length - 1) {
+                            doc.updatedAt = newDate;
+                        }
+                        timeEl.disabled = true;
+                        saving.classList.remove('hidden');
+                        try {
+                            await Api.update(doc.id, { data: doc });
+                            UI.Toast.show('success', `「${node.stage}」的時間已更新為 ${newDate}`);
+                            await App.loadDocuments();
+                        } catch (err) {
+                            UI.Toast.show('error', `儲存失敗：${err.message}`);
+                            // 還原為修改前的值，讓管理員重試
+                            doc.history[idx].time = node.time;
+                            timeEl.value = node.time ?? '';
+                            timeEl.disabled = false;
+                            saving.classList.add('hidden');
+                        }
+                    });
+ 
+                    wrapper.append(timeEl, saving);
+                    timeEl = wrapper; // 後面統一用 timeEl 插入
+                } else {
+                    timeEl = document.createElement('p');
+                    timeEl.className = 'text-xs text-gray-500';
+                    timeEl.textContent = node.time ?? '';
+                }
+ 
                 const note = document.createElement('p');
                 note.className = 'text-xs text-gray-600 mt-1';
                 note.textContent = node.note ?? '';
-
-                content.append(stage, time, note);
+ 
+                content.append(stage, timeEl, note);
                 item.append(dot, content);
                 fragment.appendChild(item);
             });
-
+ 
             container.innerHTML = '';
             container.appendChild(fragment);
         },
-
+ 
         /**
          * 更新導覽列的管理員/訪客 UI 狀態
          */
@@ -793,9 +1048,16 @@ const UI = {
             const actionSection = document.getElementById('admin-action-section');
             const authBtn       = document.getElementById('auth-btn');
             const roleBadge     = document.getElementById('role-badge');
-
+ 
             formSection.classList.toggle('hidden', !isAdmin);
-
+            // ✅ 管理員登入時，確保送件日期欄位預設為今日
+            if (isAdmin) {
+                const submitDateEl = document.getElementById('form-submit-date');
+                if (submitDateEl && !submitDateEl.value) {
+                    submitDateEl.value = Utils.todayString();
+                }
+            }
+ 
             if (isAdmin) {
                 if (currentSelectedIndex !== null) {
                     actionSection.classList.remove('hidden');
@@ -812,7 +1074,7 @@ const UI = {
                 roleBadge.className    = 'ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded';
             }
         },
-
+ 
         /**
          * 顯示詳情面板（對外公開，由 App 呼叫）
          * @param {number} index
@@ -833,7 +1095,7 @@ const UI = {
         },
     },
 };
-
+ 
 /* ══════════════════════════════════════════════════
    Utils — 通用工具函數
    ══════════════════════════════════════════════════ */
@@ -849,7 +1111,7 @@ const Utils = {
         const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
     },
-
+ 
     /**
      * 將 Supabase 回傳的 DB 資料列正規化為應用程式使用的文件物件。
      * 確保 DB 層的 id 與 created_at 不被 data 欄位內的同名欄位覆蓋。
@@ -866,7 +1128,7 @@ const Utils = {
         }
         return row;
     },
-
+ 
     /**
      * 簡易的非空字串驗證
      * @param {string} value
@@ -876,7 +1138,7 @@ const Utils = {
         return typeof value === 'string' && value.trim().length > 0;
     },
 };
-
+ 
 /* ══════════════════════════════════════════════════
    App — 高階商業邏輯
    ══════════════════════════════════════════════════ */
@@ -900,7 +1162,7 @@ const App = {
             // 套用目前搜尋條件後重新渲染
             this.applyFilter();
             if (!silent) UI.Loading.setGlobal(false);
-
+ 
             // 刷新已選取文件的詳情
             // ✅ isNewDoc=false：資料重載後不重設表單，管理員選好的日期完整保留
             if (State.currentSelectedIndex !== null) {
@@ -916,7 +1178,7 @@ const App = {
             }
         }
     },
-
+ 
     /**
      * 套用搜尋關鍵字過濾，並重新渲染列表
      */
@@ -936,7 +1198,7 @@ const App = {
             : [...State.allDocuments];
         UI.Render.renderList();
     },
-
+ 
     /**
      * 選取文件並顯示詳情面板
      * @param {number} index filteredDocuments 中的索引
@@ -944,7 +1206,7 @@ const App = {
     selectDocument(index) {
         UI.Render.showDetail(index);
     },
-
+ 
     /**
      * 新增簽呈到雲端
      */
@@ -954,22 +1216,23 @@ const App = {
         const dept        = document.getElementById('form-dept').value.trim();
         const currentStep = document.getElementById('form-current-step').value;
         const content     = document.getElementById('form-content').value.trim();
-
+ 
         // 表單驗證
         if (!Utils.isNonEmpty(title) || !Utils.isNonEmpty(applicant) || !Utils.isNonEmpty(dept)) {
             UI.Toast.show('warning', '請填寫主旨、申請人與申請部門');
             return;
         }
-
-        const today = Utils.todayString();
+ 
+        // ✅ 優先使用管理員手動填寫的送件日期，未填才 fallback 為今日
+        const submitDate = document.getElementById('form-submit-date')?.value || Utils.todayString();
         const newDoc = {
             title, applicant, dept, currentStep,
             content: content || '無詳細說明',
             status: '審核中',
-            updatedAt: today,
-            history: [{ time: today, stage: `${currentStep}審核中`, note: '初次送審', status: 'pending' }],
+            updatedAt: submitDate,          // ✅ 使用管理員指定的送件日期
+            history: [{ time: submitDate, stage: `${currentStep}審核中`, note: '初次送審', status: 'pending' }],
         };
-
+ 
         const btn = document.getElementById('submit-btn');
         UI.Loading.setButton(btn, true);
         try {
@@ -980,6 +1243,7 @@ const App = {
                 document.getElementById(id).value = '';
             });
             document.getElementById('form-current-step').value = '部門主管';
+            document.getElementById('form-submit-date').value = Utils.todayString(); // ✅ 清空後重設為今日
             await this.loadDocuments();
         } catch (err) {
             console.error('[App.addDocument]', err);
@@ -988,7 +1252,7 @@ const App = {
             UI.Loading.setButton(btn, false);
         }
     },
-
+ 
     /**
      * 從指定面板讀取操作表單的欄位值。
      *
@@ -1001,21 +1265,22 @@ const App = {
     _readActionFields(panel) {
         if (panel === 'resubmit') {
             return {
-                stageVal: document.getElementById('action-resubmit-stage')?.value ?? '',
-                // ✅ 關鍵修正：明確讀取補正面板專屬的日期欄位 action-resubmit-date
-                dateVal:  document.getElementById('action-resubmit-date')?.value ?? '',
-                noteVal:  document.getElementById('action-resubmit-note')?.value.trim() ?? '',
+                stageVal: document.getElementById('action-resubmit-stage')?.value || '',
+                // ✅ 明確讀取補正面板專屬的日期欄位；用 || '' 確保永遠回傳字串，
+                //    讓 updateDocStatus 的 chosenDate = dateVal || Utils.todayString() 防呆邏輯正確觸發
+                dateVal:  document.getElementById('action-resubmit-date')?.value || '',
+                noteVal:  (document.getElementById('action-resubmit-note')?.value || '').trim(),
             };
         }
         // panel === 'normal'
         return {
-            stageVal: document.getElementById('action-stage')?.value ?? '',
-            // ✅ 關鍵修正：明確讀取一般面板專屬的日期欄位 action-date
-            dateVal:  document.getElementById('action-date')?.value ?? '',
-            noteVal:  document.getElementById('action-note')?.value.trim() ?? '',
+            stageVal: document.getElementById('action-stage')?.value || '',
+            // ✅ 明確讀取一般面板專屬的日期欄位；用 || '' 確保永遠回傳字串
+            dateVal:  document.getElementById('action-date')?.value || '',
+            noteVal:  (document.getElementById('action-note')?.value || '').trim(),
         };
     },
-
+ 
     /**
      * 更新文件狀態（送下一關、核准結案、駁回、補正重送）
      *
@@ -1025,30 +1290,32 @@ const App = {
      *   - 'normal'   : 一般審核面板（action-date / action-stage / action-note）
      *   - 'resubmit' : 補正重送面板（action-resubmit-date / action-resubmit-stage / action-resubmit-note）
      *
-     * 修正說明：
-     *   原本以 doc.status === '被駁回' 判斷要讀哪個日期欄位，
-     *   但「駁回」、「核准」操作本身也在 normal 面板執行，
-     *   導致操作完成後 doc.status 已變更，下一次呼叫時判斷依據已失效。
-     *   改為由呼叫端明確傳入 panel 參數，欄位來源唯一確定，不再依賴文件狀態。
+     * 時間邏輯優先權（需求 1）：
+     *   chosenDate 優先採用管理員在對應 input 選取的日期（dateVal）；
+     *   dateVal 為空時（管理員未選），自動 fallback 為今日日期（需求 3 防呆）。
+     *
+     * 歷程寫入一致性（需求 2）：
+     *   所有 doc.history.push 與 doc.updatedAt 強制帶入 chosenDate，
+     *   不使用預設的 getFormattedDateString() 或 new Date()。
      */
     async updateDocStatus(targetStatus, triggerBtn, panel = 'normal') {
         if (State.currentSelectedIndex === null || !State.isAdmin) return;
-
+ 
         const doc = State.filteredDocuments[State.currentSelectedIndex];
-
+ 
         // 從正確的面板讀取所有欄位，日期來源不再含糊
         const { stageVal, dateVal, noteVal } = this._readActionFields(panel);
-
+ 
         // 驗證：「送下一關」及「補正重送」都需要選擇目標關卡
         if (targetStatus === '審核中' && !stageVal) {
             UI.Toast.show('warning', '請選擇下一個審核關卡');
             return;
         }
-
+ 
         // ✅ chosenDate 優先使用管理員手動選擇的日期，未填才 fallback 為今日
         const chosenDate = dateVal || Utils.todayString();
         if (!Array.isArray(doc.history)) doc.history = [];
-
+ 
         // --- 寫入本次操作的歷程節點 ---
         // 此節點記錄「管理員執行了什麼操作」
         doc.history.push({
@@ -1057,7 +1324,7 @@ const App = {
             note:   noteVal || (targetStatus === '被駁回' ? '文件已駁回' : '已補正送審'),
             status: targetStatus === '被駁回' ? 'error' : 'success',
         });
-
+ 
         if (targetStatus === '審核中') {
             // 「送下一關」或「補正重送」：額外新增一筆「等待審核」節點
             doc.currentStep = stageVal;
@@ -1071,9 +1338,9 @@ const App = {
         } else {
             doc.status = targetStatus;
         }
-
+ 
         doc.updatedAt = chosenDate;       // ✅ 列表的「更新時間」欄位也同步使用選定日期
-
+ 
         UI.Loading.setButton(triggerBtn, true);
         try {
             await Api.update(doc.id, { data: doc });
@@ -1086,7 +1353,7 @@ const App = {
             UI.Loading.setButton(triggerBtn, false);
         }
     },
-
+ 
     /**
      * 刪除目前選取的文件
      */
@@ -1094,7 +1361,7 @@ const App = {
         if (!confirm('確定要刪除這筆簽呈嗎？此操作無法復原。')) return;
         const doc = State.filteredDocuments[State.currentSelectedIndex];
         const btn = document.getElementById('delete-btn');
-
+ 
         UI.Loading.setButton(btn, true);
         try {
             await Api.remove(doc.id);
@@ -1110,7 +1377,7 @@ const App = {
         }
     },
 };
-
+ 
 /* ══════════════════════════════════════════════════
    事件綁定 — 集中於 DOMContentLoaded 後統一設定
    ══════════════════════════════════════════════════ */
@@ -1119,23 +1386,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('auth-btn').addEventListener('click', () => {
         State.isAdmin ? Auth.logout() : Auth.openModal();
     });
-
+ 
     // 密碼 Modal
     document.getElementById('modal-cancel-btn').addEventListener('click', () => Auth.closeModal());
     document.getElementById('modal-confirm-btn').addEventListener('click', () => Auth.verify());
     document.getElementById('modal-password-input').addEventListener('keydown', e => {
         if (e.key === 'Enter') Auth.verify();
     });
-
+ 
     // 手動刷新
     document.getElementById('refresh-btn').addEventListener('click', () => App.loadDocuments());
-
+ 
     // 搜尋過濾
     document.getElementById('search-input').addEventListener('input', () => App.applyFilter());
-
+ 
     // 新增簽呈
     document.getElementById('submit-btn').addEventListener('click', () => App.addDocument());
-
+ 
     // 一般審核操作按鈕（送下一關、核准、駁回）
     // ✅ 明確傳入 panel='normal'，確保讀取 action-date / action-stage / action-note
     document.querySelectorAll('.action-btn[data-action]').forEach(btn => {
@@ -1143,24 +1410,24 @@ document.addEventListener('DOMContentLoaded', () => {
             App.updateDocStatus(btn.dataset.action, btn, 'normal');
         });
     });
-
+ 
     // 補正重送按鈕
     // ✅ 明確傳入 panel='resubmit'，確保讀取 action-resubmit-date / action-resubmit-stage / action-resubmit-note
     document.getElementById('resubmit-btn').addEventListener('click', (e) => {
         App.updateDocStatus('審核中', e.currentTarget, 'resubmit');
     });
-
+ 
     // 刪除按鈕
     document.getElementById('delete-btn').addEventListener('click', () => App.deleteDocument());
-
+ 
     // 初始載入資料
     App.loadDocuments();
 });
-
+ 
 /* ══════════════════════════════════════════════════
    🔒 安全性升級建議（正式環境請務必閱讀）
    ══════════════════════════════════════════════════
-
+ 
    1. Supabase anon key 洩漏風險
       ─────────────────────────
       anon key 本身無法被隱藏（可由 Network tab 看到），
@@ -1169,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
          並設定政策，例如：
          - SELECT: 允許所有人 (public)
          - INSERT/UPDATE/DELETE: 僅允許 authenticated 角色
-
+ 
    2. 管理員密碼前端驗證問題
       ─────────────────────────
       目前 ADMIN_PASSWORD 直接比對，任何人開啟 DevTools 即可看到。
@@ -1183,13 +1450,15 @@ document.addEventListener('DOMContentLoaded', () => {
         ```
       方案 B（進階）：自建後端代理，前端不持有任何 service_role key，
         所有寫入操作透過後端 API 驗證後再執行。
-
+ 
    3. 輸入資料 XSS 防護
       ─────────────────────────
       本次重構已將所有使用者輸入改用 .textContent 設定，
       避免直接 innerHTML 插入用戶資料造成 XSS 攻擊。
-
+ 
    ══════════════════════════════════════════════════ */
 </script>
 </body>
 </html>
+ 
+
