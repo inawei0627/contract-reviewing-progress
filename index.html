@@ -828,7 +828,7 @@ const UI = {
                     stageInput.value = node.stage ?? '';
                     stageInput.placeholder = '關卡名稱（如：法務審核中）';
                     stageInput.className = 'text-sm font-bold text-gray-800 border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-indigo-500 w-full mb-1';
-                    stageInput.list = 'stage-suggestions';
+                    stageInput.setAttribute('list', 'stage-suggestions'); // ✅ list 是 read-only getter，必須用 setAttribute
                     stageInput.addEventListener('input', () => { container._editHistory[idx].stage = stageInput.value; });
 
                     // 時間
@@ -966,7 +966,6 @@ const UI = {
             };
 
             renderEditor();
-        }
         },
 
         /**
