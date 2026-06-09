@@ -745,97 +745,228 @@ const UI = {
 
         /**
          * 渲染簽核歷程時間軸
+         * 管理員模式：完整行內編輯器（拖曳排序 / 編輯關卡+時間+說明 / 插入節點 / 刪除節點）
+         * 訪客模式：純文字只讀
          * @param {Object} doc 文件資料
          */
         renderTimeline(doc) {
             const container = document.getElementById('timelineContainer');
             if (!container) return;
 
-            const history = Array.isArray(doc.history) ? doc.history : [];
-            if (history.length === 0) {
-                container.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
+            if (!State.isAdmin) {
+                // ── 訪客：純文字只讀 ──
+                const history = Array.isArray(doc.history) ? doc.history : [];
+                if (history.length === 0) {
+                    container.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
+                    return;
+                }
+                const frag = document.createDocumentFragment();
+                history.forEach(node => {
+                    const colorMap = { error: 'bg-red-500', pending: 'bg-amber-400' };
+                    const color = colorMap[node.status] ?? 'bg-green-500';
+                    const item = document.createElement('div');
+                    item.className = 'flex gap-4 items-start relative pb-6';
+                    item.innerHTML = `
+                        <div class="absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white ${color}"></div>
+                        <div class="pl-4">
+                            <p class="text-sm font-bold text-gray-800">${node.stage ?? ''}</p>
+                            <p class="text-xs text-gray-500">${node.time ?? ''}</p>
+                            <p class="text-xs text-gray-600 mt-1">${node.note ?? ''}</p>
+                        </div>`;
+                    frag.appendChild(item);
+                });
+                container.innerHTML = '';
+                container.appendChild(frag);
                 return;
             }
 
-            const fragment = document.createDocumentFragment();
-            history.forEach((node, idx) => {
-                const colorMap = { error: 'bg-red-500', pending: 'bg-amber-400' };
-                const color    = colorMap[node.status] ?? 'bg-green-500';
+            // ── 管理員：完整編輯模式 ──
+            // 工作副本（不直接動 doc.history，按「儲存」才寫入）
+            if (!container._editHistory || container._editDocId !== doc.id) {
+                container._editHistory = JSON.parse(JSON.stringify(doc.history ?? []));
+                container._editDocId   = doc.id;
+            }
 
-                const item = document.createElement('div');
-                item.className = 'flex gap-4 items-start relative pb-6';
+            const STAGES = ['部門主管審核中','法務審核中','會計部審核中','採購部審核中','副總審核中','5樓(執行長.董事長)審核中','審核中','已核准','被駁回'];
 
-                const dot = document.createElement('div');
-                dot.className = `absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white ${color}`;
+            const renderEditor = () => {
+                container.innerHTML = '';
 
-                const content = document.createElement('div');
-                content.className = 'pl-4';
+                const history = container._editHistory;
 
-                const stage = document.createElement('p');
-                stage.className = 'text-sm font-bold text-gray-800';
-                stage.textContent = node.stage ?? '';
+                // ── 頂部提示列 ──
+                const hint = document.createElement('p');
+                hint.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-3 flex items-center gap-1';
+                hint.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> 編輯模式：可拖曳排序、修改欄位，完成後按「儲存歷程」';
+                container.appendChild(hint);
 
-                // ── 日期欄位：管理員模式下為可編輯的 date input，訪客模式為純文字 ──
-                let timeEl;
-                if (State.isAdmin) {
-                    // 外層 wrapper：讓 input 與「儲存中」提示並排
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'flex items-center gap-2 mt-0.5';
+                if (history.length === 0) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-gray-400 text-sm pl-2 py-2';
+                    empty.textContent = '尚無簽核歷程';
+                    container.appendChild(empty);
+                }
 
-                    timeEl = document.createElement('input');
-                    timeEl.type = 'date';
-                    timeEl.value = node.time ?? '';
-                    timeEl.className = 'text-xs text-indigo-600 border border-dashed border-indigo-300 rounded px-1 py-0.5 bg-transparent focus:outline-none focus:border-indigo-500 focus:bg-indigo-50 cursor-pointer transition';
-                    timeEl.title = '點擊修改此歷程的日期，修改後自動儲存';
+                // ── 各節點 ──
+                history.forEach((node, idx) => {
+                    const colorMap = { error: 'bg-red-500', pending: 'bg-amber-400' };
+                    const color = colorMap[node.status] ?? 'bg-green-500';
 
-                    // 儲存中提示（預設隱藏）
-                    const saving = document.createElement('span');
-                    saving.className = 'text-xs text-indigo-400 hidden';
-                    saving.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin mr-1"></i>儲存中…';
+                    const item = document.createElement('div');
+                    item.className = 'relative pb-5 border border-dashed border-gray-300 rounded-lg p-2 mb-2 bg-white group';
+                    item.draggable = true;
+                    item.dataset.idx = idx;
 
-                    // 修改日期後自動儲存到雲端
-                    timeEl.addEventListener('change', async () => {
-                        const newDate = timeEl.value || Utils.todayString();
-                        doc.history[idx].time = newDate;
-                        // 若此節點是最後一筆，連帶更新列表的「更新時間」欄位
-                        if (idx === doc.history.length - 1) {
-                            doc.updatedAt = newDate;
-                        }
-                        timeEl.disabled = true;
-                        saving.classList.remove('hidden');
-                        try {
-                            await Api.update(doc.id, { data: doc });
-                            UI.Toast.show('success', `「${node.stage}」的時間已更新為 ${newDate}`);
-                            await App.loadDocuments();
-                        } catch (err) {
-                            UI.Toast.show('error', `儲存失敗：${err.message}`);
-                            // 還原為修改前的值，讓管理員重試
-                            doc.history[idx].time = node.time;
-                            timeEl.value = node.time ?? '';
-                            timeEl.disabled = false;
-                            saving.classList.add('hidden');
+                    // drag handle 顏色點
+                    const handle = document.createElement('div');
+                    handle.className = `w-3 h-3 rounded-full ${color} inline-block mr-2 cursor-grab active:cursor-grabbing`;
+                    handle.title = '拖曳排序';
+
+                    // 關卡名稱（可編輯 input，帶下拉建議）
+                    const stageInput = document.createElement('input');
+                    stageInput.type = 'text';
+                    stageInput.value = node.stage ?? '';
+                    stageInput.placeholder = '關卡名稱（如：法務審核中）';
+                    stageInput.className = 'text-sm font-bold text-gray-800 border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-indigo-500 w-full mb-1';
+                    stageInput.list = 'stage-suggestions';
+                    stageInput.addEventListener('input', () => { container._editHistory[idx].stage = stageInput.value; });
+
+                    // 時間
+                    const dateInput = document.createElement('input');
+                    dateInput.type = 'date';
+                    dateInput.value = node.time ?? '';
+                    dateInput.className = 'text-xs text-indigo-600 border border-dashed border-indigo-200 rounded px-1 py-0.5 bg-transparent focus:outline-none focus:border-indigo-500 focus:bg-indigo-50';
+                    dateInput.addEventListener('change', () => { container._editHistory[idx].time = dateInput.value; });
+
+                    // 狀態選擇（顏色點）
+                    const statusSel = document.createElement('select');
+                    statusSel.className = 'text-xs border border-dashed border-gray-300 rounded px-1 py-0.5 bg-white ml-2 text-gray-600 focus:outline-none focus:border-indigo-400';
+                    statusSel.title = '節點狀態（影響顏色）';
+                    [['pending','● 進行中'],['','● 已完成'],['error','● 駁回/錯誤']].forEach(([val, label]) => {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = label;
+                        if ((node.status ?? '') === val) opt.selected = true;
+                        statusSel.appendChild(opt);
+                    });
+                    statusSel.addEventListener('change', () => { container._editHistory[idx].status = statusSel.value || undefined; });
+
+                    // 說明
+                    const noteInput = document.createElement('input');
+                    noteInput.type = 'text';
+                    noteInput.value = node.note ?? '';
+                    noteInput.placeholder = '說明（選填）';
+                    noteInput.className = 'text-xs text-gray-600 border-b border-dashed border-gray-200 bg-transparent focus:outline-none focus:border-indigo-400 w-full mt-1';
+                    noteInput.addEventListener('input', () => { container._editHistory[idx].note = noteInput.value; });
+
+                    // 刪除按鈕
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'absolute top-1 right-1 text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition px-1';
+                    delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    delBtn.title = '刪除此歷程節點';
+                    delBtn.addEventListener('click', () => {
+                        container._editHistory.splice(idx, 1);
+                        renderEditor();
+                    });
+
+                    // 在此節點前插入
+                    const insertBtn = document.createElement('button');
+                    insertBtn.className = 'block text-xs text-indigo-400 hover:text-indigo-600 mb-1 transition';
+                    insertBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i>在此前插入節點';
+                    insertBtn.addEventListener('click', () => {
+                        container._editHistory.splice(idx, 0, { stage: '', time: Utils.todayString(), note: '', status: 'pending' });
+                        renderEditor();
+                    });
+
+                    // 拖曳排序
+                    item.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', idx);
+                        item.classList.add('opacity-50');
+                    });
+                    item.addEventListener('dragend', () => item.classList.remove('opacity-50'));
+                    item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('ring-2','ring-indigo-300'); });
+                    item.addEventListener('dragleave', () => item.classList.remove('ring-2','ring-indigo-300'));
+                    item.addEventListener('drop', e => {
+                        e.preventDefault();
+                        item.classList.remove('ring-2','ring-indigo-300');
+                        const from = parseInt(e.dataTransfer.getData('text/plain'));
+                        const to   = parseInt(item.dataset.idx);
+                        if (from !== to) {
+                            const arr = container._editHistory;
+                            const [moved] = arr.splice(from, 1);
+                            arr.splice(to, 0, moved);
+                            renderEditor();
                         }
                     });
 
-                    wrapper.append(timeEl, saving);
-                    timeEl = wrapper; // 後面統一用 timeEl 插入
-                } else {
-                    timeEl = document.createElement('p');
-                    timeEl.className = 'text-xs text-gray-500';
-                    timeEl.textContent = node.time ?? '';
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-1 flex-wrap';
+                    row.append(handle, stageInput);
+
+                    const row2 = document.createElement('div');
+                    row2.className = 'flex items-center gap-1 mt-1';
+                    row2.append(dateInput, statusSel);
+
+                    item.append(insertBtn, row, row2, noteInput, delBtn);
+                    container.appendChild(item);
+                });
+
+                // ── 末尾「新增節點」按鈕 ──
+                const addBtn = document.createElement('button');
+                addBtn.className = 'text-xs text-indigo-500 hover:text-indigo-700 border border-dashed border-indigo-300 hover:border-indigo-500 rounded-lg px-3 py-1.5 w-full mt-1 transition';
+                addBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i>新增歷程節點（末尾）';
+                addBtn.addEventListener('click', () => {
+                    container._editHistory.push({ stage: '', time: Utils.todayString(), note: '', status: 'pending' });
+                    renderEditor();
+                });
+
+                // ── 儲存 / 放棄 按鈕列 ──
+                const btnRow = document.createElement('div');
+                btnRow.className = 'flex gap-2 mt-3';
+
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 rounded transition flex items-center justify-center gap-1';
+                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 儲存歷程';
+                saveBtn.addEventListener('click', async () => {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> 儲存中…';
+                    try {
+                        doc.history   = JSON.parse(JSON.stringify(container._editHistory));
+                        const last    = doc.history[doc.history.length - 1];
+                        if (last?.time) doc.updatedAt = last.time;
+                        await Api.update(doc.id, { data: doc });
+                        UI.Toast.show('success', '簽核歷程已儲存');
+                        container._editDocId = null; // 重置副本
+                        await App.loadDocuments();
+                    } catch (err) {
+                        UI.Toast.show('error', `儲存失敗：${err.message}`);
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 儲存歷程';
+                    }
+                });
+
+                const discardBtn = document.createElement('button');
+                discardBtn.className = 'flex-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 hover:border-gray-400 py-1.5 rounded transition';
+                discardBtn.innerHTML = '<i class="fa-solid fa-rotate-left mr-1"></i>放棄變更';
+                discardBtn.addEventListener('click', () => {
+                    container._editHistory = JSON.parse(JSON.stringify(doc.history ?? []));
+                    renderEditor();
+                });
+
+                container.append(addBtn, btnRow);
+                btnRow.append(saveBtn, discardBtn);
+
+                // ── datalist 建議 ──
+                if (!document.getElementById('stage-suggestions')) {
+                    const dl = document.createElement('datalist');
+                    dl.id = 'stage-suggestions';
+                    STAGES.forEach(s => { const o = document.createElement('option'); o.value = s; dl.appendChild(o); });
+                    document.body.appendChild(dl);
                 }
+            };
 
-                const note = document.createElement('p');
-                note.className = 'text-xs text-gray-600 mt-1';
-                note.textContent = node.note ?? '';
-
-                content.append(stage, timeEl, note);
-                item.append(dot, content);
-                fragment.appendChild(item);
-            });
-
-            container.innerHTML = '';
-            container.appendChild(fragment);
+            renderEditor();
+        }
         },
 
         /**
