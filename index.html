@@ -911,27 +911,7 @@ const UI = {
                 }
             }
 
-            // ── 管理員審核操作面板 ──
-            if (State.isAdmin) {
-                const actionSection = document.getElementById('admin-action-section');
-                const normalPanel   = document.getElementById('action-normal-panel');
-                const rejectedPanel = document.getElementById('action-rejected-panel');
-                actionSection.classList.remove('hidden');
-
-                const isRejected = doc.status === '被駁回';
-                normalPanel.classList.toggle('hidden', isRejected);
-                rejectedPanel.classList.toggle('hidden', !isRejected);
-
-                if (isNewDoc) {
-                    const today = Utils.todayString();
-                    document.getElementById('action-stage').value          = '';
-                    document.getElementById('action-date').value           = today;
-                    document.getElementById('action-note').value           = '';
-                    document.getElementById('action-resubmit-note').value  = '';
-                    document.getElementById('action-resubmit-stage').value = '';
-                    document.getElementById('action-resubmit-date').value  = today;
-                }
-            }
+            // ── 管理員審核操作面板（已移除，略過）──
 
             this.renderTimeline(doc);
         },
@@ -1003,19 +983,20 @@ const UI = {
 
             // ── 儲存簽呈資訊按鈕（只注入一次）──
             if (!document.getElementById('save-basic-btn')) {
-                const adminSection = document.getElementById('admin-action-section');
-                if (adminSection) {
+                const timelineContainer = document.getElementById('timelineContainer');
+                const timelineHeading   = timelineContainer?.previousElementSibling;
+                const insertTarget      = timelineHeading ?? timelineContainer;
+                if (insertTarget) {
                     const btnWrap = document.createElement('div');
                     btnWrap.id = 'save-basic-wrap';
-                    btnWrap.className = 'px-3 pb-3 pt-1';
+                    btnWrap.className = 'px-0 pb-3 pt-1';
                     btnWrap.innerHTML = `
                         <button id="save-basic-btn"
                             class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5 shadow-sm">
                             <i class="fa-solid fa-floppy-disk"></i>
                             <span id="save-basic-btn-text">儲存簽呈資訊</span>
                         </button>`;
-                    // 插入在 admin-action-section 的最上方
-                    adminSection.insertBefore(btnWrap, adminSection.firstChild);
+                    insertTarget.parentNode.insertBefore(btnWrap, insertTarget);
 
                     document.getElementById('save-basic-btn').addEventListener('click', async () => {
                         const btn      = document.getElementById('save-basic-btn');
@@ -1302,7 +1283,6 @@ const UI = {
         updateAuthUI() {
             const { isAdmin, currentSelectedIndex } = State;
             const formSection   = document.getElementById('admin-form-section');
-            const actionSection = document.getElementById('admin-action-section');
             const authBtn       = document.getElementById('auth-btn');
             const roleBadge     = document.getElementById('role-badge');
 
@@ -1316,15 +1296,11 @@ const UI = {
             }
 
             if (isAdmin) {
-                if (currentSelectedIndex !== null) {
-                    actionSection.classList.remove('hidden');
-                }
                 authBtn.innerHTML = '<i class="fa-solid fa-lock-open mr-1"></i> 登出管理員';
                 authBtn.className = 'text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition shadow-sm';
                 roleBadge.textContent  = '最高管理員模式';
                 roleBadge.className    = 'ml-2 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 font-bold rounded';
             } else {
-                actionSection.classList.add('hidden');
                 authBtn.innerHTML = '<i class="fa-solid fa-lock mr-1"></i> 管理員登入';
                 authBtn.className = 'text-sm bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition';
                 roleBadge.textContent  = '訪客唯讀模式';
