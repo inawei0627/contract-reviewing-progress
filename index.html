@@ -424,6 +424,15 @@ const Config = Object.freeze({
 
     /** Toast 自動消失時間（毫秒） */
     TOAST_DURATION_MS: 3500,
+
+    /**
+     * 管理員 Session 有效時間（毫秒），預設 8 小時。
+     * localStorage 標記超過此時間後視為過期，需重新登入。
+     */
+    SESSION_TTL_MS: 8 * 60 * 60 * 1000,
+
+    /** localStorage 使用的 key 名稱 */
+    SESSION_KEY: 'hye_admin_session',
 });
 
 /* ══════════════════════════════════════════════════
@@ -547,7 +556,9 @@ const Auth = {
     },
 
     /**
-     * 驗證輸入密碼並切換管理員模式
+     * 驗證輸入密碼並切換管理員模式。
+     * 成功後將 Session 寫入 localStorage（含到期時間戳）。
+     *
      * @returns {boolean} 驗證是否通過
      *
      * ⚠️ 此為前端明碼比對，僅提供 UI 層保護。
@@ -557,10 +568,10 @@ const Auth = {
         const input = document.getElementById('modal-password-input').value;
         if (input === Config.ADMIN_PASSWORD) {
             State.isAdmin = true;
+            this._saveSession();
             this.closeModal();
             UI.Render.updateAuthUI();
             UI.Toast.show('success', '已進入管理員模式');
-            // 若已選取文件，刷新詳情面板
             if (State.currentSelectedIndex !== null) {
                 UI.Render.showDetail(State.currentSelectedIndex);
             }
@@ -570,22 +581,84 @@ const Auth = {
         return false;
     },
 
-    /** 登出管理員模式 */
+    /** 登出管理員模式，並清除 localStorage Session 標記 */
     logout() {
         State.isAdmin = false;
+        this._clearSession();
         UI.Render.updateAuthUI();
         UI.Toast.show('info', '已登出管理員模式');
-        // 登出後重新渲染詳情面板（訪客模式恢復純文字，移除編輯欄位與儲存按鈕）
         if (State.currentSelectedIndex !== null) {
             const doc = State.filteredDocuments[State.currentSelectedIndex];
             if (doc) UI.Render.renderDetail(doc, true);
         }
-        // 隱藏管理員新增表單區
         const adminFormSection = document.getElementById('admin-form-section');
         if (adminFormSection) adminFormSection.classList.add('hidden');
-        // 移除儲存按鈕（讓下次登入時能重新注入）
         const saveBtnWrap = document.getElementById('save-basic-wrap');
         if (saveBtnWrap) saveBtnWrap.remove();
+    },
+
+    /**
+     * 頁面初始化時呼叫：讀取 localStorage，若 Session 存在且未過期，
+     * 自動恢復管理員狀態，省去重新輸入密碼的步驟。
+     *
+     * 此方法應在 DOMContentLoaded 的最前面呼叫（UI 組件已掛載後）。
+     *
+     * @returns {boolean} 是否成功恢復 Session
+     */
+    restoreSession() {
+        try {
+            const raw = localStorage.getItem(Config.SESSION_KEY);
+            if (!raw) return false;
+
+            const session = JSON.parse(raw);
+            const now = Date.now();
+
+            // 格式驗證：必須包含 expiresAt 欄位且尚未過期
+            if (!session?.expiresAt || now >= session.expiresAt) {
+                // 已過期或格式不符，主動清除殘留標記
+                this._clearSession();
+                return false;
+            }
+
+            // Session 有效：靜默恢復登入狀態
+            State.isAdmin = true;
+            UI.Render.updateAuthUI();
+            return true;
+        } catch {
+            // JSON.parse 失敗或其他例外：清除損毀的標記
+            this._clearSession();
+            return false;
+        }
+    },
+
+    /**
+     * 將 Session 資訊寫入 localStorage。
+     * 記錄登入時間與到期時間，供 restoreSession() 驗證使用。
+     * @private
+     */
+    _saveSession() {
+        try {
+            const session = {
+                loggedInAt: Date.now(),
+                expiresAt:  Date.now() + Config.SESSION_TTL_MS,
+            };
+            localStorage.setItem(Config.SESSION_KEY, JSON.stringify(session));
+        } catch (e) {
+            // localStorage 不可用（隱私模式或容量已滿）時靜默失敗
+            console.warn('[Auth._saveSession] localStorage 不可用：', e);
+        }
+    },
+
+    /**
+     * 從 localStorage 移除 Session 標記。
+     * @private
+     */
+    _clearSession() {
+        try {
+            localStorage.removeItem(Config.SESSION_KEY);
+        } catch (e) {
+            console.warn('[Auth._clearSession] localStorage 不可用：', e);
+        }
     },
 };
 
@@ -1722,6 +1795,9 @@ const App = {
    事件綁定 — 集中於 DOMContentLoaded 後統一設定
    ══════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+    // ── Session 恢復：頁面載入時優先檢查 localStorage，避免重新整理後登出 ──
+    Auth.restoreSession();
+
     // 導覽列：管理員登入 / 登出
     document.getElementById('auth-btn').addEventListener('click', () => {
         State.isAdmin ? Auth.logout() : Auth.openModal();
