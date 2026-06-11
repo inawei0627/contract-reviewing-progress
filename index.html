@@ -105,6 +105,35 @@
                         <input type="text" id="search-input" placeholder="輸入申請人、部門、主旨或內容關鍵字搜尋..."
                             class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-400 shadow-sm bg-white">
                     </div>
+                    <!-- 年月篩選器 + 結果統計 -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <i class="fa-solid fa-calendar-days text-gray-400 text-sm shrink-0"></i>
+                        <select id="filter-year"
+                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 shadow-sm">
+                            <option value="">全部年份</option>
+                        </select>
+                        <select id="filter-month"
+                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 shadow-sm">
+                            <option value="">全部月份</option>
+                            <option value="1">1 月</option>
+                            <option value="2">2 月</option>
+                            <option value="3">3 月</option>
+                            <option value="4">4 月</option>
+                            <option value="5">5 月</option>
+                            <option value="6">6 月</option>
+                            <option value="7">7 月</option>
+                            <option value="8">8 月</option>
+                            <option value="9">9 月</option>
+                            <option value="10">10 月</option>
+                            <option value="11">11 月</option>
+                            <option value="12">12 月</option>
+                        </select>
+                        <button id="clear-filter-btn"
+                            class="px-2.5 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition shadow-sm hidden">
+                            <i class="fa-solid fa-xmark mr-1"></i>清除篩選
+                        </button>
+                        <span id="filter-result-count" class="text-xs text-gray-400 ml-auto"></span>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -125,6 +154,29 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <!-- 分頁控制列 -->
+                <div id="pagination-bar" class="hidden px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between text-sm">
+                    <span id="pagination-info" class="text-xs text-gray-500"></span>
+                    <div class="flex items-center gap-1">
+                        <button id="page-first-btn"
+                            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-600 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-angles-left"></i>
+                        </button>
+                        <button id="page-prev-btn"
+                            class="px-2.5 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-600 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-angle-left"></i> 上一頁
+                        </button>
+                        <div id="page-numbers" class="flex items-center gap-1"></div>
+                        <button id="page-next-btn"
+                            class="px-2.5 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-600 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                            下一頁 <i class="fa-solid fa-angle-right"></i>
+                        </button>
+                        <button id="page-last-btn"
+                            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-600 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-angles-right"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -386,6 +438,14 @@ const State = {
     isAdmin: false,
     /** @type {number|null} 目前選取的文件在 filteredDocuments 中的索引 */
     currentSelectedIndex: null,
+    /** @type {string} 目前選取的年份篩選值（空字串 = 全部） */
+    currentYear: '',
+    /** @type {string} 目前選取的月份篩選值（空字串 = 全部） */
+    currentMonth: '',
+    /** @type {number} 目前頁碼（1-based） */
+    currentPage: 1,
+    /** @type {number} 每頁顯示筆數 */
+    pageSize: 20,
 };
 
 /* ══════════════════════════════════════════════════
@@ -668,6 +728,7 @@ const UI = {
 
         /**
          * 渲染整個列表與統計數字（使用 DocumentFragment 批次更新 DOM）
+         * 支援分頁：依 State.currentPage 與 State.pageSize 截取資料
          */
         renderList() {
             const listBody = document.getElementById('document-list-body');
@@ -679,19 +740,122 @@ const UI = {
             document.getElementById('count-approved').textContent  = stats.approved;
             document.getElementById('count-rejected').textContent  = stats.rejected;
 
-            if (State.filteredDocuments.length === 0) {
+            const total = State.filteredDocuments.length;
+
+            // 更新篩選結果數量提示
+            const countEl = document.getElementById('filter-result-count');
+            if (countEl) {
+                const hasFilter = State.currentYear || State.currentMonth ||
+                    document.getElementById('search-input')?.value.trim();
+                countEl.textContent = hasFilter ? `共 ${total} 筆符合條件` : '';
+            }
+
+            if (total === 0) {
                 listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前無符合條件的簽呈資料。</td></tr>';
+                document.getElementById('pagination-bar')?.classList.add('hidden');
                 return;
             }
 
+            // 計算分頁範圍
+            const totalPages = Math.ceil(total / State.pageSize);
+            // 邊界修正：若篩選後頁數減少，自動拉回最後一頁
+            if (State.currentPage > totalPages) State.currentPage = totalPages;
+            const startIdx = (State.currentPage - 1) * State.pageSize;
+            const endIdx   = Math.min(startIdx + State.pageSize, total);
+            const pageSlice = State.filteredDocuments.slice(startIdx, endIdx);
+
             // 用 DocumentFragment 一次性插入，減少 reflow 次數
             const fragment = document.createDocumentFragment();
-            State.filteredDocuments.forEach((doc, index) => {
-                if (doc) fragment.appendChild(this._buildTableRow(doc, index));
+            pageSlice.forEach((doc, sliceIdx) => {
+                if (doc) {
+                    // 傳入 filteredDocuments 中的真實索引，確保點選後 selectDocument 索引正確
+                    fragment.appendChild(this._buildTableRow(doc, startIdx + sliceIdx));
+                }
             });
 
             listBody.innerHTML = '';
             listBody.appendChild(fragment);
+
+            // 渲染分頁列
+            this._renderPagination(total, totalPages);
+        },
+
+        /**
+         * 渲染分頁控制列
+         * @param {number} total 總筆數
+         * @param {number} totalPages 總頁數
+         */
+        _renderPagination(total, totalPages) {
+            const bar = document.getElementById('pagination-bar');
+            if (!bar) return;
+
+            if (totalPages <= 1) {
+                bar.classList.add('hidden');
+                return;
+            }
+            bar.classList.remove('hidden');
+
+            const cur = State.currentPage;
+            const startItem = (cur - 1) * State.pageSize + 1;
+            const endItem   = Math.min(cur * State.pageSize, total);
+
+            // 更新資訊文字
+            const infoEl = document.getElementById('pagination-info');
+            if (infoEl) infoEl.textContent = `第 ${startItem}–${endItem} 筆，共 ${total} 筆`;
+
+            // 頁碼按鈕：顯示目前頁附近最多 5 頁
+            const numbersEl = document.getElementById('page-numbers');
+            if (numbersEl) {
+                numbersEl.innerHTML = '';
+                const range = this._calcPageRange(cur, totalPages);
+                range.forEach(p => {
+                    if (p === '…') {
+                        const span = document.createElement('span');
+                        span.textContent = '…';
+                        span.className = 'px-1.5 text-gray-400 text-xs';
+                        numbersEl.appendChild(span);
+                    } else {
+                        const btn = document.createElement('button');
+                        btn.textContent = p;
+                        btn.className = `px-2.5 py-1 text-xs rounded border transition ${
+                            p === cur
+                                ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                                : 'border-gray-300 bg-white hover:bg-gray-100 text-gray-600'
+                        }`;
+                        btn.addEventListener('click', () => App.goToPage(p));
+                        numbersEl.appendChild(btn);
+                    }
+                });
+            }
+
+            // 更新首/上/下/末頁按鈕的 disabled 狀態
+            const setDisabled = (id, disabled) => {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = disabled;
+            };
+            setDisabled('page-first-btn', cur === 1);
+            setDisabled('page-prev-btn',  cur === 1);
+            setDisabled('page-next-btn',  cur === totalPages);
+            setDisabled('page-last-btn',  cur === totalPages);
+        },
+
+        /**
+         * 計算要顯示的頁碼列表（含省略號）
+         * @param {number} cur 目前頁
+         * @param {number} total 總頁數
+         * @returns {Array<number|string>}
+         */
+        _calcPageRange(cur, total) {
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            const pages = [];
+            pages.push(1);
+            if (cur > 3) pages.push('…');
+            for (let p = Math.max(2, cur - 1); p <= Math.min(total - 1, cur + 1); p++) {
+                pages.push(p);
+            }
+            if (cur < total - 2) pages.push('…');
+            pages.push(total);
+            return pages;
         },
 
         /**
@@ -1262,6 +1426,8 @@ const App = {
             UI.Toast.show('error', `資料載入失敗：${err.message}`);
             State.allDocuments = [];
         } finally {
+            // 動態產生年份篩選選項
+            this.populateYearFilter();
             // 套用目前搜尋條件後重新渲染
             this.applyFilter();
             if (!silent) UI.Loading.setGlobal(false);
@@ -1283,13 +1449,37 @@ const App = {
     },
 
     /**
-     * 套用搜尋關鍵字過濾，並重新渲染列表
+     * 套用搜尋關鍵字 + 年月篩選，並重新渲染列表
+     * 篩選條件改變時自動重置到第 1 頁
+     * @param {boolean} [resetPage=true] 是否重置頁碼
      */
-    applyFilter() {
-        const keyword = document.getElementById('search-input').value.trim().toLowerCase();
-        State.filteredDocuments = keyword
-            ? State.allDocuments.filter(doc => {
-                if (!doc) return false;
+    applyFilter(resetPage = true) {
+        if (resetPage) State.currentPage = 1;
+
+        const keyword = document.getElementById('search-input')?.value.trim().toLowerCase() ?? '';
+        const year    = State.currentYear;
+        const month   = State.currentMonth;
+
+        State.filteredDocuments = State.allDocuments.filter(doc => {
+            if (!doc) return false;
+
+            // ── 年月篩選 ──
+            if (year || month) {
+                // 日期來源：updatedAt 或 created_at（字串格式 YYYY-MM-DD 或 ISO 8601）
+                const dateStr = doc.updatedAt || doc.created_at || '';
+                const datePart = dateStr.slice(0, 10); // 取 YYYY-MM-DD 部分
+                if (datePart.length >= 7) {
+                    const [docYear, docMonth] = datePart.split('-');
+                    if (year  && docYear  !== year)          return false;
+                    if (month && String(parseInt(docMonth)) !== month) return false;
+                } else {
+                    // 日期欄位缺失時，有篩選條件就排除
+                    return false;
+                }
+            }
+
+            // ── 關鍵字篩選 ──
+            if (keyword) {
                 return (
                     doc.applicant?.toLowerCase().includes(keyword) ||
                     doc.dept?.toLowerCase().includes(keyword)      ||
@@ -1297,269 +1487,17 @@ const App = {
                     String(doc.id).includes(keyword)               ||
                     doc.content?.toLowerCase().includes(keyword)
                 );
-              })
-            : [...State.allDocuments];
+            }
+
+            return true;
+        });
+
+        // 更新「清除篩選」按鈕可見性
+        const clearBtn = document.getElementById('clear-filter-btn');
+        if (clearBtn) {
+            const hasFilter = year || month || keyword;
+            clearBtn.classList.toggle('hidden', !hasFilter);
+        }
+
         UI.Render.renderList();
-    },
-
-    /**
-     * 選取文件並顯示詳情面板
-     * @param {number} index filteredDocuments 中的索引
-     */
-    selectDocument(index) {
-        UI.Render.showDetail(index);
-    },
-
-    /**
-     * 新增簽呈到雲端
-     */
-    async addDocument() {
-        const title       = document.getElementById('form-title').value.trim();
-        const applicant   = document.getElementById('form-applicant').value.trim();
-        const dept        = document.getElementById('form-dept').value.trim();
-        const currentStep = document.getElementById('form-current-step').value;
-        const content     = document.getElementById('form-content').value.trim();
-
-        // 表單驗證
-        if (!Utils.isNonEmpty(title) || !Utils.isNonEmpty(applicant) || !Utils.isNonEmpty(dept)) {
-            UI.Toast.show('warning', '請填寫主旨、申請人與申請部門');
-            return;
-        }
-
-        // ✅ 優先使用管理員手動填寫的送件日期，未填才 fallback 為今日
-        const submitDate = document.getElementById('form-submit-date')?.value || Utils.todayString();
-        const newDoc = {
-            title, applicant, dept, currentStep,
-            content: content || '無詳細說明',
-            status: '審核中',
-            updatedAt: submitDate,          // ✅ 使用管理員指定的送件日期
-            history: [{ time: submitDate, stage: `${currentStep}審核中`, note: '初次送審', status: 'pending' }],
-        };
-
-        const btn = document.getElementById('submit-btn');
-        UI.Loading.setButton(btn, true);
-        try {
-            await Api.insert({ data: newDoc });
-            UI.Toast.show('success', '新簽呈已成功發布至雲端 🎉');
-            // 清空表單
-            ['form-title', 'form-applicant', 'form-dept', 'form-content'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
-            document.getElementById('form-current-step').value = '財務部';
-            document.getElementById('form-submit-date').value = Utils.todayString(); // ✅ 清空後重設為今日
-            await this.loadDocuments();
-        } catch (err) {
-            console.error('[App.addDocument]', err);
-            UI.Toast.show('error', `發布失敗：${err.message}`);
-        } finally {
-            UI.Loading.setButton(btn, false);
-        }
-    },
-
-    /**
-     * 從指定面板讀取操作表單的欄位值。
-     *
-     * 核心設計原則：欄位來源由「目前顯示的 UI 面板」決定，
-     * 而非由文件的舊狀態（doc.status）推斷，避免狀態讀取錯位。
-     *
-     * @param {'normal'|'resubmit'} panel 目前顯示的操作面板
-     * @returns {{ stageVal: string, dateVal: string, noteVal: string }}
-     */
-    _readActionFields(panel) {
-        if (panel === 'resubmit') {
-            return {
-                stageVal: document.getElementById('action-resubmit-stage')?.value || '',
-                // ✅ 明確讀取補正面板專屬的日期欄位；用 || '' 確保永遠回傳字串，
-                //    讓 updateDocStatus 的 chosenDate = dateVal || Utils.todayString() 防呆邏輯正確觸發
-                dateVal:  document.getElementById('action-resubmit-date')?.value || '',
-                noteVal:  (document.getElementById('action-resubmit-note')?.value || '').trim(),
-            };
-        }
-        // panel === 'normal'
-        return {
-            stageVal: document.getElementById('action-stage')?.value || '',
-            // ✅ 明確讀取一般面板專屬的日期欄位；用 || '' 確保永遠回傳字串
-            dateVal:  document.getElementById('action-date')?.value || '',
-            noteVal:  (document.getElementById('action-note')?.value || '').trim(),
-        };
-    },
-
-    /**
-     * 更新文件狀態（送下一關、核准結案、駁回、補正重送）
-     *
-     * @param {string} targetStatus 目標狀態字串：'審核中' | '已核准' | '被駁回'
-     * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於切換 Loading 樣式）
-     * @param {'normal'|'resubmit'} [panel='normal'] 目前顯示的操作面板。
-     *   - 'normal'   : 一般審核面板（action-date / action-stage / action-note）
-     *   - 'resubmit' : 補正重送面板（action-resubmit-date / action-resubmit-stage / action-resubmit-note）
-     *
-     * 時間邏輯優先權（需求 1）：
-     *   chosenDate 優先採用管理員在對應 input 選取的日期（dateVal）；
-     *   dateVal 為空時（管理員未選），自動 fallback 為今日日期（需求 3 防呆）。
-     *
-     * 歷程寫入一致性（需求 2）：
-     *   所有 doc.history.push 與 doc.updatedAt 強制帶入 chosenDate，
-     *   不使用預設的 getFormattedDateString() 或 new Date()。
-     */
-    async updateDocStatus(targetStatus, triggerBtn, panel = 'normal') {
-        if (State.currentSelectedIndex === null || !State.isAdmin) return;
-
-        const doc = State.filteredDocuments[State.currentSelectedIndex];
-
-        // 從正確的面板讀取所有欄位，日期來源不再含糊
-        const { stageVal, dateVal, noteVal } = this._readActionFields(panel);
-
-        // 驗證：「送下一關」及「補正重送」都需要選擇目標關卡
-        if (targetStatus === '審核中' && !stageVal) {
-            UI.Toast.show('warning', '請選擇下一個審核關卡');
-            return;
-        }
-
-        // ✅ chosenDate 優先使用管理員手動選擇的日期，未填才 fallback 為今日
-        const chosenDate = dateVal || Utils.todayString();
-        if (!Array.isArray(doc.history)) doc.history = [];
-
-        // --- 寫入本次操作的歷程節點 ---
-        // 此節點記錄「管理員執行了什麼操作」
-        doc.history.push({
-            time:   chosenDate,           // ✅ 正確使用從對應面板讀取的日期
-            stage:  targetStatus,
-            note:   noteVal || (targetStatus === '被駁回' ? '文件已駁回' : '已補正送審'),
-            status: targetStatus === '被駁回' ? 'error' : 'success',
-        });
-
-        if (targetStatus === '審核中') {
-            // 「送下一關」或「補正重送」：額外新增一筆「等待審核」節點
-            doc.currentStep = stageVal;
-            doc.status      = '審核中';
-            doc.history.push({
-                time:   chosenDate,       // ✅ 同一批操作共用同一個 chosenDate，時間軸一致
-                stage:  `${stageVal}審核中`,
-                note:   '等待處理',
-                status: 'pending',
-            });
-        } else {
-            doc.status = targetStatus;
-        }
-
-        doc.updatedAt = chosenDate;       // ✅ 列表的「更新時間」欄位也同步使用選定日期
-
-        UI.Loading.setButton(triggerBtn, true);
-        try {
-            await Api.update(doc.id, { data: doc });
-            UI.Toast.show('success', `狀態已更新為「${targetStatus}」`);
-            await this.loadDocuments();
-        } catch (err) {
-            console.error('[App.updateDocStatus]', err);
-            UI.Toast.show('error', `更新失敗：${err.message}`);
-        } finally {
-            UI.Loading.setButton(triggerBtn, false);
-        }
-    },
-
-    /**
-     * 刪除目前選取的文件
-     */
-    async deleteDocument() {
-        if (!confirm('確定要刪除這筆簽呈嗎？此操作無法復原。')) return;
-        const doc = State.filteredDocuments[State.currentSelectedIndex];
-        const btn = document.getElementById('delete-btn');
-
-        UI.Loading.setButton(btn, true);
-        try {
-            await Api.remove(doc.id);
-            State.currentSelectedIndex = null;
-            document.getElementById('detail-section').classList.add('hidden');
-            UI.Toast.show('success', '簽呈已成功刪除');
-            await this.loadDocuments();
-        } catch (err) {
-            console.error('[App.deleteDocument]', err);
-            UI.Toast.show('error', `刪除失敗：${err.message}`);
-        } finally {
-            UI.Loading.setButton(btn, false);
-        }
-    },
-};
-
-/* ══════════════════════════════════════════════════
-   事件綁定 — 集中於 DOMContentLoaded 後統一設定
-   ══════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-    // 導覽列：管理員登入 / 登出
-    document.getElementById('auth-btn').addEventListener('click', () => {
-        State.isAdmin ? Auth.logout() : Auth.openModal();
-    });
-
-    // 密碼 Modal
-    document.getElementById('modal-cancel-btn').addEventListener('click', () => Auth.closeModal());
-    document.getElementById('modal-confirm-btn').addEventListener('click', () => Auth.verify());
-    document.getElementById('modal-password-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter') Auth.verify();
-    });
-
-    // 手動刷新
-    document.getElementById('refresh-btn').addEventListener('click', () => App.loadDocuments());
-
-    // 搜尋過濾
-    document.getElementById('search-input').addEventListener('input', () => App.applyFilter());
-
-    // 新增簽呈
-    document.getElementById('submit-btn').addEventListener('click', () => App.addDocument());
-
-    // 一般審核操作按鈕（送下一關、核准、駁回）
-    // ✅ 明確傳入 panel='normal'，確保讀取 action-date / action-stage / action-note
-    document.querySelectorAll('.action-btn[data-action]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            App.updateDocStatus(btn.dataset.action, btn, 'normal');
-        });
-    });
-
-    // 補正重送按鈕
-    // ✅ 明確傳入 panel='resubmit'，確保讀取 action-resubmit-date / action-resubmit-stage / action-resubmit-note
-    document.getElementById('resubmit-btn').addEventListener('click', (e) => {
-        App.updateDocStatus('審核中', e.currentTarget, 'resubmit');
-    });
-
-    // 刪除按鈕
-    document.getElementById('delete-btn').addEventListener('click', () => App.deleteDocument());
-
-    // 初始載入資料
-    App.loadDocuments();
-});
-
-/* ══════════════════════════════════════════════════
-   🔒 安全性升級建議（正式環境請務必閱讀）
-   ══════════════════════════════════════════════════
-
-   1. Supabase anon key 洩漏風險
-      ─────────────────────────
-      anon key 本身無法被隱藏（可由 Network tab 看到），
-      其安全性完全依賴 Row-Level Security (RLS)。
-      ✅ 請到 Supabase 後台 → Authentication → Policies 啟用 RLS，
-         並設定政策，例如：
-         - SELECT: 允許所有人 (public)
-         - INSERT/UPDATE/DELETE: 僅允許 authenticated 角色
-
-   2. 管理員密碼前端驗證問題
-      ─────────────────────────
-      目前 ADMIN_PASSWORD 直接比對，任何人開啟 DevTools 即可看到。
-      建議升級路徑：
-      方案 A（簡易）：改用 Supabase Auth 的 Email / OTP 登入
-        ```javascript
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: 'admin@company.com',
-          password: userInput,
-        });
-        ```
-      方案 B（進階）：自建後端代理，前端不持有任何 service_role key，
-        所有寫入操作透過後端 API 驗證後再執行。
-
-   3. 輸入資料 XSS 防護
-      ─────────────────────────
-      本次重構已將所有使用者輸入改用 .textContent 設定，
-      避免直接 innerHTML 插入用戶資料造成 XSS 攻擊。
-
-   ══════════════════════════════════════════════════ */
-</script>
-</body>
-</html>
+  
