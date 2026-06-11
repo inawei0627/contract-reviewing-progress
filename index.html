@@ -158,9 +158,8 @@
                         <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
                         <select id="form-current-step"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
-                            <option value="部門主管" selected>部門主管</option>
+                            <option value="財務部" selected>財務部</option>
                             <option value="法務">法務</option>
-                            <option value="會計部">會計部</option>
                             <option value="採購部">採購部</option>
                             <option value="副總">副總</option>
                             <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
@@ -216,7 +215,7 @@
                                     class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
                                     <option value="" disabled selected>選擇下個關卡</option>
                                     <option value="法務">法務</option>
-                                    <option value="會計部">會計部</option>
+                                    <option value="財務部">財務部</option>
                                     <option value="採購部">採購部</option>
                                     <option value="副總">副總</option>
                                     <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
@@ -261,7 +260,7 @@
                                     class="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white font-medium text-gray-700 focus:outline-none focus:border-indigo-500">
                                     <option value="" disabled selected>選擇重新送審關卡</option>
                                     <option value="法務">法務</option>
-                                    <option value="會計部">會計部</option>
+                                    <option value="財務部">財務部</option>
                                     <option value="採購部">採購部</option>
                                     <option value="副總">副總</option>
                                     <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
@@ -369,7 +368,7 @@ const Config = Object.freeze({
     ADMIN_PASSWORD: 'admin123',
 
     /** 審核關卡清單（供表單選項使用） */
-    WORKFLOW_STAGES: ['部門主管', '法務', '會計部', '採購部', '副總', '5樓(執行長.董事長)'],
+    WORKFLOW_STAGES: ['財務部', '法務', '採購部', '副總', '5樓(執行長.董事長)'],
 
     /** Toast 自動消失時間（毫秒） */
     TOAST_DURATION_MS: 3500,
@@ -516,6 +515,17 @@ const Auth = {
         State.isAdmin = false;
         UI.Render.updateAuthUI();
         UI.Toast.show('info', '已登出管理員模式');
+        // 登出後重新渲染詳情面板（訪客模式恢復純文字，移除編輯欄位與儲存按鈕）
+        if (State.currentSelectedIndex !== null) {
+            const doc = State.filteredDocuments[State.currentSelectedIndex];
+            if (doc) UI.Render.renderDetail(doc, true);
+        }
+        // 隱藏管理員新增表單區
+        const adminFormSection = document.getElementById('admin-form-section');
+        if (adminFormSection) adminFormSection.classList.add('hidden');
+        // 移除儲存按鈕（讓下次登入時能重新注入）
+        const saveBtnWrap = document.getElementById('save-basic-wrap');
+        if (saveBtnWrap) saveBtnWrap.remove();
     },
 };
 
@@ -700,18 +710,54 @@ const UI = {
             const detailSection = document.getElementById('detail-section');
             detailSection.classList.remove('hidden');
 
-            // 安全設定文字
-            document.getElementById('detail-id').textContent         = `#ID-${doc.id ?? ''}`;
-            document.getElementById('detail-title').textContent      = doc.title ?? '';
-            document.getElementById('detail-applicant').textContent  = doc.applicant ?? '';
-            document.getElementById('detail-dept').textContent       = doc.dept ?? '';
-            document.getElementById('detail-content').textContent    = doc.content || '無詳細說明';
+            // ── 基本欄位渲染（管理員：可編輯 / 訪客：純文字）──
+            document.getElementById('detail-id').textContent = `#ID-${doc.id ?? ''}`;
 
             const badge = document.getElementById('detail-status-badge');
             badge.textContent = doc.status ?? '';
             badge.className = `px-2 py-1 text-xs font-semibold rounded-full ${this._getStatusClass(doc.status)}`;
 
-            // 管理員操作面板顯示邏輯
+            if (State.isAdmin) {
+                // ── 管理員：切換為可編輯欄位（isNewDoc 時重建，避免殘留舊文件值）──
+                if (isNewDoc) {
+                    this._renderDetailEditableFields(doc);
+                } else {
+                    // 同一份文件重新渲染（如歷程儲存後 reload）：只更新值，不重建 DOM
+                    const t = document.getElementById('detail-title-input');
+                    const a = document.getElementById('detail-applicant-input');
+                    const d = document.getElementById('detail-dept-input');
+                    const c = document.getElementById('detail-content-input');
+                    if (t) t.value = doc.title ?? '';
+                    if (a) a.value = doc.applicant ?? '';
+                    if (d) d.value = doc.dept ?? '';
+                    if (c) c.value = doc.content ?? '';
+                }
+            } else {
+                // ── 訪客：純文字（XSS 安全：全用 textContent）──
+                // 若曾進入管理員模式，input 可能已取代 h3；統一用 id 查找，不存在時不報錯
+                const titleNode = document.getElementById('detail-title') || document.getElementById('detail-title-input');
+                if (titleNode) titleNode.textContent = doc.title ?? '';
+
+                // 資訊列：若 infoBox 已被改寫為 input 群組，重建為靜態文字
+                const infoBox = document.querySelector('#detail-section .bg-indigo-50, #detail-section .bg-gray-50');
+                if (infoBox) {
+                    infoBox.className = 'text-xs text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg space-y-1';
+                    infoBox.innerHTML = '';
+                    const p1 = document.createElement('p');
+                    const p2 = document.createElement('p');
+                    // ✅ 全程 textContent，無 innerHTML 插值，防 XSS
+                    p1.innerHTML = '<strong>申請人：</strong>';
+                    const spanApp  = document.createElement('span'); spanApp.id  = 'detail-applicant'; spanApp.textContent = doc.applicant ?? '--';
+                    const spanDept = document.createElement('span'); spanDept.id = 'detail-dept';      spanDept.textContent = `(${doc.dept ?? '--'})`;
+                    p1.append(spanApp, ' ', spanDept);
+                    p2.innerHTML = '<strong>事由：</strong>';
+                    const spanCont = document.createElement('span'); spanCont.id = 'detail-content';   spanCont.textContent = doc.content || '無詳細說明';
+                    p2.append(spanCont);
+                    infoBox.append(p1, p2);
+                }
+            }
+
+            // ── 管理員審核操作面板 ──
             if (State.isAdmin) {
                 const actionSection = document.getElementById('admin-action-section');
                 const normalPanel   = document.getElementById('action-normal-panel');
@@ -722,25 +768,153 @@ const UI = {
                 normalPanel.classList.toggle('hidden', isRejected);
                 rejectedPanel.classList.toggle('hidden', !isRejected);
 
-                // ✅ 只在切換文件時重設表單，避免覆蓋管理員已手動選好的日期
                 if (isNewDoc) {
                     const today = Utils.todayString();
-
-                    // ── 一般審核面板（無論當前是否顯示都一律重設）──
-                    // 確保下次切換回一般文件時，日期已預設為今日，不會殘留舊文件的值
-                    document.getElementById('action-stage').value = '';
-                    document.getElementById('action-date').value  = today;   // ✅ 預設今日，管理員可隨時覆蓋
-                    document.getElementById('action-note').value  = '';
-
-                    // ── 補正重送面板（同上，無論當前是否顯示都一律重設）──
+                    document.getElementById('action-stage').value          = '';
+                    document.getElementById('action-date').value           = today;
+                    document.getElementById('action-note').value           = '';
                     document.getElementById('action-resubmit-note').value  = '';
                     document.getElementById('action-resubmit-stage').value = '';
-                    document.getElementById('action-resubmit-date').value  = today; // ✅ 預設今日，管理員可隨時覆蓋
+                    document.getElementById('action-resubmit-date').value  = today;
                 }
-                // isNewDoc = false 時：保留管理員已輸入的日期與其他欄位值，不做任何覆蓋
             }
 
             this.renderTimeline(doc);
+        },
+
+        /**
+         * 在詳情面板將基本欄位替換為可編輯 input/textarea（管理員專用）
+         * 同時注入「儲存簽呈資訊」按鈕
+         * @param {Object} doc
+         */
+        _renderDetailEditableFields(doc) {
+            // ── 主旨：h3#detail-title → input ──
+            const titleEl = document.getElementById('detail-title');
+            if (titleEl) {
+                const inp = document.createElement('input');
+                inp.type = 'text';
+                inp.id   = 'detail-title-input';
+                inp.value = doc.title ?? '';
+                inp.className = 'font-bold text-gray-800 text-base w-full border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-indigo-500 py-0.5';
+                inp.placeholder = '簽呈主旨';
+                titleEl.replaceWith(inp);
+            }
+
+            // ── 資訊列：把靜態 <p> 換成 input 欄位群組 ──
+            const infoBox = document.querySelector('#detail-section .bg-gray-50');
+            if (infoBox) {
+                infoBox.innerHTML = '';   // 清除靜態 <p> 文字，重建為 input 群組
+                infoBox.className = 'text-xs mb-4 bg-indigo-50 border border-indigo-100 p-3 rounded-lg space-y-2';
+
+                const mkField = (labelText, id, value, placeholder) => {
+                    const wrap  = document.createElement('div');
+                    wrap.className = 'flex items-center gap-2';
+                    const label = document.createElement('label');
+                    label.htmlFor = id;
+                    label.className = 'font-semibold text-gray-600 w-16 shrink-0';
+                    label.textContent = labelText;   // ✅ textContent 防 XSS
+                    const inp = document.createElement('input');
+                    inp.type = 'text';
+                    inp.id   = id;
+                    inp.value = value;               // ✅ .value 賦值防 XSS
+                    inp.placeholder = placeholder;
+                    inp.className = 'flex-1 border-b border-dashed border-indigo-200 bg-transparent focus:outline-none focus:border-indigo-500 text-gray-700 py-0.5';
+                    wrap.append(label, inp);
+                    return wrap;
+                };
+
+                const mkTextarea = (labelText, id, value, placeholder) => {
+                    const wrap  = document.createElement('div');
+                    wrap.className = 'flex items-start gap-2';
+                    const label = document.createElement('label');
+                    label.htmlFor = id;
+                    label.className = 'font-semibold text-gray-600 w-16 shrink-0 pt-0.5';
+                    label.textContent = labelText;   // ✅ textContent 防 XSS
+                    const ta = document.createElement('textarea');
+                    ta.id   = id;
+                    ta.rows = 2;
+                    ta.value = value;                // ✅ .value 賦值防 XSS
+                    ta.placeholder = placeholder;
+                    ta.className = 'flex-1 border border-dashed border-indigo-200 rounded bg-white focus:outline-none focus:border-indigo-500 text-gray-700 text-xs px-1.5 py-1 resize-none';
+                    wrap.append(label, ta);
+                    return wrap;
+                };
+
+                infoBox.append(
+                    mkField('申請人：', 'detail-applicant-input', doc.applicant ?? '', '申請人姓名'),
+                    mkField('部門：',   'detail-dept-input',      doc.dept ?? '',      '申請部門'),
+                    mkTextarea('事由：', 'detail-content-input',  doc.content ?? '',   '簽呈內容說明'),
+                );
+            }
+
+            // ── 儲存簽呈資訊按鈕（只注入一次）──
+            if (!document.getElementById('save-basic-btn')) {
+                const adminSection = document.getElementById('admin-action-section');
+                if (adminSection) {
+                    const btnWrap = document.createElement('div');
+                    btnWrap.id = 'save-basic-wrap';
+                    btnWrap.className = 'px-3 pb-3 pt-1';
+                    btnWrap.innerHTML = `
+                        <button id="save-basic-btn"
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span id="save-basic-btn-text">儲存簽呈資訊</span>
+                        </button>`;
+                    // 插入在 admin-action-section 的最上方
+                    adminSection.insertBefore(btnWrap, adminSection.firstChild);
+
+                    document.getElementById('save-basic-btn').addEventListener('click', async () => {
+                        const btn      = document.getElementById('save-basic-btn');
+                        const btnText  = document.getElementById('save-basic-btn-text');
+                        const titleVal = document.getElementById('detail-title-input')?.value.trim()     ?? '';
+                        const appVal   = document.getElementById('detail-applicant-input')?.value.trim() ?? '';
+                        const deptVal  = document.getElementById('detail-dept-input')?.value.trim()      ?? '';
+                        const contVal  = document.getElementById('detail-content-input')?.value.trim()   ?? '';
+
+                        if (!titleVal) {
+                            UI.Toast.show('error', '簽呈主旨不可為空');
+                            return;
+                        }
+
+                        btn.disabled  = true;
+                        btnText.textContent = '儲存中…';
+                        btn.querySelector('i').className = 'fa-solid fa-circle-notch animate-spin';
+
+                        try {
+                            // 取得當前文件
+                            const doc = State.filteredDocuments[State.currentSelectedIndex];
+                            if (!doc) throw new Error('找不到當前文件');
+
+                            // 更新欄位
+                            doc.title     = titleVal;
+                            doc.applicant = appVal;
+                            doc.dept      = deptVal;
+                            doc.content   = contVal;
+
+                            // ✅ 同步到 allDocuments（保持兩份陣列一致）
+                            const allIdx = State.allDocuments.findIndex(d => d.id === doc.id);
+                            if (allIdx !== -1) {
+                                State.allDocuments[allIdx].title     = titleVal;
+                                State.allDocuments[allIdx].applicant = appVal;
+                                State.allDocuments[allIdx].dept      = deptVal;
+                                State.allDocuments[allIdx].content   = contVal;
+                            }
+
+                            await Api.update(doc.id, { data: doc });
+                            UI.Toast.show('success', '簽呈資訊已儲存');
+
+                            // 刷新列表顯示
+                            UI.Render.renderList();
+                        } catch (err) {
+                            UI.Toast.show('error', `儲存失敗：${err.message}`);
+                        } finally {
+                            btn.disabled = false;
+                            btnText.textContent = '儲存簽呈資訊';
+                            btn.querySelector('i').className = 'fa-solid fa-floppy-disk';
+                        }
+                    });
+                }
+            }
         },
 
         /**
@@ -787,7 +961,7 @@ const UI = {
                 container._editDocId   = doc.id;
             }
 
-            const STAGES = ['部門主管審核中','法務審核中','會計部審核中','採購部審核中','副總審核中','5樓(執行長.董事長)審核中','審核中','已核准','被駁回'];
+            const STAGES = ['財務部審核中','法務審核中','採購部審核中','副總審核中','5樓(執行長.董事長)審核中','審核中','已核准','被駁回'];
 
             const renderEditor = () => {
                 container.innerHTML = '';
@@ -1171,7 +1345,7 @@ const App = {
             ['form-title', 'form-applicant', 'form-dept', 'form-content'].forEach(id => {
                 document.getElementById(id).value = '';
             });
-            document.getElementById('form-current-step').value = '部門主管';
+            document.getElementById('form-current-step').value = '財務部';
             document.getElementById('form-submit-date').value = Utils.todayString(); // ✅ 清空後重設為今日
             await this.loadDocuments();
         } catch (err) {
