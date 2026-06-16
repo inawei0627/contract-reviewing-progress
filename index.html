@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title> HYE-簽呈進度追蹤系統</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Toast 動畫 */
@@ -24,6 +24,32 @@
         .btn-loading .btn-text { display: none; }
         .btn-loading .btn-spinner { display: inline-block !important; }
         .btn-spinner { display: none; }
+
+        /* ── Tailwind v3 補丁（靜態 CSS 不含 JIT class）── */
+        /* 紫色系（用印中卡片） */
+        .bg-purple-50  { background-color: #faf5ff; }
+        .bg-purple-100 { background-color: #f3e8ff; }
+        .text-purple-600 { color: #9333ea; }
+        .text-purple-700 { color: #7e22ce; }
+        .ring-purple-500 { --tw-ring-color: #a855f7; }
+        .border-purple-500 { border-color: #a855f7; }
+        /* 透明度修飾 (bg-indigo-50/50) */
+        .bg-indigo-50\/50 { background-color: rgba(238,242,255,.5); }
+        /* line-clamp */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        /* backdrop-blur-sm（Modal 背景）*/
+        .backdrop-blur-sm { backdrop-filter: blur(4px); }
+        /* ring-2 */
+        .ring-2 {
+            --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width,0px) var(--tw-ring-offset-color,#fff);
+            --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width,0px)) var(--tw-ring-color,rgba(59,130,246,.5));
+            box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow,0 0 #0000);
+        }
     </style>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen">
@@ -56,33 +82,45 @@
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     <!-- 統計卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-5 mb-8">
+        <div id="stats-card-all" data-filter="all"
+            class="stats-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer transition hover:shadow-md hover:border-gray-300">
             <div class="p-3 bg-blue-50 text-blue-600 rounded-lg mr-4"><i class="fa-solid fa-list-check text-xl"></i></div>
             <div>
                 <p class="text-sm text-gray-500 font-medium">總簽呈數</p>
                 <p id="count-total" class="text-2xl font-bold text-gray-800">0</p>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+        <div id="stats-card-pending" data-filter="pending"
+            class="stats-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer transition hover:shadow-md hover:border-gray-300">
             <div class="p-3 bg-amber-50 text-amber-600 rounded-lg mr-4"><i class="fa-solid fa-spinner text-xl animate-spin"></i></div>
             <div>
                 <p class="text-sm text-gray-500 font-medium">審核中</p>
                 <p id="count-pending" class="text-2xl font-bold text-amber-600">0</p>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
-            <div class="p-3 bg-green-50 text-green-600 rounded-lg mr-4"><i class="fa-solid fa-circle-check text-xl"></i></div>
-            <div>
-                <p class="text-sm text-gray-500 font-medium">已核准結案</p>
-                <p id="count-approved" class="text-2xl font-bold text-green-600">0</p>
-            </div>
-        </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+        <div id="stats-card-rejected" data-filter="rejected"
+            class="stats-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer transition hover:shadow-md hover:border-gray-300">
             <div class="p-3 bg-red-50 text-red-600 rounded-lg mr-4"><i class="fa-solid fa-circle-xmark text-xl"></i></div>
             <div>
                 <p class="text-sm text-gray-500 font-medium">被駁回</p>
                 <p id="count-rejected" class="text-2xl font-bold text-red-600">0</p>
+            </div>
+        </div>
+        <div id="stats-card-stamping" data-filter="stamping"
+            class="stats-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer transition hover:shadow-md hover:border-gray-300">
+            <div class="p-3 bg-purple-50 text-purple-600 rounded-lg mr-4"><i class="fa-solid fa-stamp text-xl"></i></div>
+            <div>
+                <p class="text-sm text-gray-500 font-medium">用印中</p>
+                <p id="count-stamping" class="text-2xl font-bold text-purple-600">0</p>
+            </div>
+        </div>
+        <div id="stats-card-approved" data-filter="approved"
+            class="stats-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer transition hover:shadow-md hover:border-gray-300">
+            <div class="p-3 bg-green-50 text-green-600 rounded-lg mr-4"><i class="fa-solid fa-circle-check text-xl"></i></div>
+            <div>
+                <p class="text-sm text-gray-500 font-medium">用印結案</p>
+                <p id="count-approved" class="text-2xl font-bold text-green-600">0</p>
             </div>
         </div>
     </div>
@@ -213,6 +251,7 @@
                             <option value="財務部" selected>財務部</option>
                             <option value="法務">法務</option>
                             <option value="採購部">採購部</option>
+                            <option value="送用印">送用印</option>
                             <option value="副總">副總</option>
                             <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
                         </select>
@@ -256,6 +295,15 @@
                 <!-- 管理員操作區 -->
                 <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">簽核歷程時間軸</h4>
                 <div id="timelineContainer" class="relative border-l-2 border-gray-200 ml-2 space-y-4 pb-2"></div>
+
+                <!-- 刪除簽呈（管理員專用） -->
+                <button id="delete-doc-btn"
+                    class="hidden w-full mt-4 bg-white border border-red-300 hover:bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                    <span class="btn-text flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i> 刪除此簽呈
+                    </span>
+                </button>
             </div>
         </div>
     </div>
@@ -337,7 +385,24 @@ const Config = Object.freeze({
     ADMIN_PASSWORD: 'admin123',
 
     /** 審核關卡清單（供表單選項使用） */
-    WORKFLOW_STAGES: ['財務部', '法務', '採購部', '副總', '5樓(執行長.董事長)'],
+    WORKFLOW_STAGES: ['財務部', '法務', '採購部', '送用印', '副總', '5樓(執行長.董事長)'],
+
+    /**
+     * 結案狀態清單（最終態，非循環審核關卡）。
+     * 統一定義於此，避免「用印結案」「被駁回」等字串散落於各處，
+     * 未來若需調整文字，只需修改此處。
+     */
+    TERMINAL_STATUSES: Object.freeze({
+        APPROVED: '用印結案',
+        REJECTED: '被駁回',
+    }),
+
+    /**
+     * 在 WORKFLOW_STAGES 中，有些關卡本身即代表一種特殊狀態，
+     * 當簽核歷程最新節點對應到這些關卡時，「狀態」欄位會直接顯示該關卡名稱
+     * （而非統一顯示為「審核中」）。例如：「送用印」。
+     */
+    STAGE_AS_STATUS: ['送用印'],
 
     /** Toast 自動消失時間（毫秒） */
     TOAST_DURATION_MS: 3500,
@@ -368,6 +433,15 @@ const State = {
     currentYear: '',
     /** @type {string} 目前選取的月份篩選值（空字串 = 全部） */
     currentMonth: '',
+    /**
+     * @type {'all'|'pending'|'approved'|'rejected'|'stamping'} 統計卡片點選後的狀態篩選條件。
+     * - 'all'      : 全部（總簽呈數卡片，或未選取任何卡片）
+     * - 'pending'  : 審核中（包含「審核中」等所有未結案且非用印狀態）
+     * - 'approved' : 用印結案（Config.TERMINAL_STATUSES.APPROVED）
+     * - 'rejected' : 被駁回（Config.TERMINAL_STATUSES.REJECTED）
+     * - 'stamping' : 用印中（status 欄位為「用印中」）
+     */
+    filterStatus: 'all',
     /** @type {number} 目前頁碼（1-based） */
     currentPage: 1,
     /** @type {number} 每頁顯示筆數 */
@@ -645,14 +719,26 @@ const UI = {
          * @param {Array<Object>} docs
          * @returns {{ total: number, pending: number, approved: number, rejected: number }}
          */
+        /**
+         * 計算統計數字（純函數，不操作 DOM）
+         *
+         * pending（審核中）採用「非結案、非用印即視為審核中」的判斷方式，
+         * 確保 total 永遠等於 pending + approved + rejected + stamping，
+         * 「用印中」與「送用印」皆計入 stamping；其餘未結案狀態歸入 pending。
+         *
+         * @param {Array<Object>} docs
+         * @returns {{ total: number, pending: number, approved: number, rejected: number, stamping: number }}
+         */
         _calcStats(docs) {
             return docs.reduce((acc, doc) => {
                 acc.total++;
-                if (doc.status === '審核中')  acc.pending++;
-                if (doc.status === '已核准')  acc.approved++;
-                if (doc.status === '被駁回')  acc.rejected++;
+                const bucket = Utils.getStatusBucket(doc.status);
+                if (bucket === 'approved')  acc.approved++;
+                else if (bucket === 'rejected')  acc.rejected++;
+                else if (bucket === 'stamping')  acc.stamping++;
+                else acc.pending++; // 涵蓋「審核中」等所有未結案且非用印狀態
                 return acc;
-            }, { total: 0, pending: 0, approved: 0, rejected: 0 });
+            }, { total: 0, pending: 0, approved: 0, rejected: 0, stamping: 0 });
         },
 
         /**
@@ -661,8 +747,10 @@ const UI = {
          * @returns {string}
          */
         _getStatusClass(status) {
-            if (status === '已核准') return 'bg-green-100 text-green-800';
-            if (status === '被駁回') return 'bg-red-100 text-red-800';
+            if (status === Config.TERMINAL_STATUSES.APPROVED) return 'bg-green-100 text-green-800';
+            if (status === Config.TERMINAL_STATUSES.REJECTED) return 'bg-red-100 text-red-800';
+            if (status === '用印中' || status === '送用印') return 'bg-purple-100 text-purple-700';
+            if (Config.STAGE_AS_STATUS.includes(status)) return 'bg-blue-100 text-blue-800';
             return 'bg-amber-100 text-amber-800';
         },
 
@@ -729,6 +817,7 @@ const UI = {
             document.getElementById('count-pending').textContent   = stats.pending;
             document.getElementById('count-approved').textContent  = stats.approved;
             document.getElementById('count-rejected').textContent  = stats.rejected;
+            document.getElementById('count-stamping').textContent  = stats.stamping;
 
             const total = State.filteredDocuments.length;
 
@@ -736,7 +825,8 @@ const UI = {
             const countEl = document.getElementById('filter-result-count');
             if (countEl) {
                 const hasFilter = State.currentYear || State.currentMonth ||
-                    document.getElementById('search-input')?.value.trim();
+                    document.getElementById('search-input')?.value.trim() ||
+                    (State.filterStatus && State.filterStatus !== 'all');
                 countEl.textContent = hasFilter ? `共 ${total} 筆符合條件` : '';
             }
 
@@ -870,6 +960,10 @@ const UI = {
             const badge = document.getElementById('detail-status-badge');
             badge.textContent = doc.status ?? '';
             badge.className = `px-2 py-1 text-xs font-semibold rounded-full ${this._getStatusClass(doc.status)}`;
+
+            // ✅ 刪除按鈕僅在管理員模式下顯示
+            const deleteBtn = document.getElementById('delete-doc-btn');
+            if (deleteBtn) deleteBtn.classList.toggle('hidden', !State.isAdmin);
 
             if (State.isAdmin) {
                 // ── 管理員：切換為可編輯欄位（isNewDoc 時重建，避免殘留舊文件值）──
@@ -1026,20 +1120,9 @@ const UI = {
                             doc.dept      = deptVal;
                             doc.content   = contVal;
 
-                            // ✅ 同步到 allDocuments（保持兩份陣列一致）
-                            const allIdx = State.allDocuments.findIndex(d => d.id === doc.id);
-                            if (allIdx !== -1) {
-                                State.allDocuments[allIdx].title     = titleVal;
-                                State.allDocuments[allIdx].applicant = appVal;
-                                State.allDocuments[allIdx].dept      = deptVal;
-                                State.allDocuments[allIdx].content   = contVal;
-                            }
-
-                            await Api.update(doc.id, { data: doc });
+                            // ✅ 統一透過 App.updateDocument 寫回雲端、同步 State 並重繪總表
+                            await App.updateDocument(doc);
                             UI.Toast.show('success', '簽呈資訊已儲存');
-
-                            // 刷新列表顯示
-                            UI.Render.renderList();
                         } catch (err) {
                             UI.Toast.show('error', `儲存失敗：${err.message}`);
                         } finally {
@@ -1096,7 +1179,11 @@ const UI = {
                 container._editDocId   = doc.id;
             }
 
-            const STAGES = ['財務部審核中','法務審核中','採購部審核中','副總審核中','5樓(執行長.董事長)審核中','審核中','已核准','被駁回'];
+            // ✅ 依 Config.WORKFLOW_STAGES 動態生成，新增關卡（如「送用印」）時自動納入建議清單
+            const STAGES = [
+                ...Config.WORKFLOW_STAGES.map(s => `${s}審核中`),
+                '審核中', Config.TERMINAL_STATUSES.APPROVED, Config.TERMINAL_STATUSES.REJECTED,
+            ];
 
             const renderEditor = () => {
                 container.innerHTML = '';
@@ -1243,9 +1330,15 @@ const UI = {
                         doc.history   = JSON.parse(JSON.stringify(container._editHistory));
                         const last    = doc.history[doc.history.length - 1];
                         if (last?.time) doc.updatedAt = last.time;
-                        await Api.update(doc.id, { data: doc });
+
+                        // ✅ 依最新歷程節點，回推並同步 currentStep / status，
+                        //    確保總表的「當前關卡」「狀態」與時間軸最新節點一致
+                        await App.updateDocument(doc, true);
+
                         UI.Toast.show('success', '簽核歷程已儲存');
                         container._editDocId = null; // 重置副本
+
+                        // 重新從雲端載入，確保所有欄位完全同步
                         await App.loadDocuments();
                     } catch (err) {
                         UI.Toast.show('error', `儲存失敗：${err.message}`);
@@ -1306,6 +1399,64 @@ const UI = {
                 roleBadge.textContent  = '訪客唯讀模式';
                 roleBadge.className    = 'ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded';
             }
+        },
+
+        /**
+         * 依 State.filterStatus 為對應的統計卡片加上選取樣式（ring + border），
+         * 其餘卡片恢復預設樣式，提供「目前處於篩選模式」的視覺回饋。
+         */
+        updateStatsCardSelection() {
+            const active = State.filterStatus || 'all';
+            // 各篩選條件對應的 ring / border 顏色（與卡片本身的配色保持一致）
+            // 卡片順序（左→右）：總簽呈數 / 審核中 / 被駁回 / 用印中 / 用印結案
+            const ringColorMap = {
+                all:      'ring-blue-500 border-blue-500',    // 總簽呈數（藍）
+                pending:  'ring-amber-500 border-amber-500',  // 審核中（琥珀）
+                rejected: 'ring-red-500 border-red-500',      // 被駁回（紅）
+                stamping: 'ring-purple-500 border-purple-500',// 用印中（紫）
+                approved: 'ring-green-500 border-green-500',  // 用印結案（綠）
+            };
+            const activeRing = ringColorMap[active] || 'ring-blue-500 border-blue-500';
+
+            document.querySelectorAll('.stats-card').forEach(card => {
+                const isActive = card.dataset.filter === active;
+                // 先清除所有可能殘留的 ring / border 色彩 class
+                card.classList.remove(
+                    'ring-2',
+                    'ring-blue-500',   'border-blue-500',
+                    'ring-amber-500',  'border-amber-500',
+                    'ring-green-500',  'border-green-500',
+                    'ring-red-500',    'border-red-500',
+                    'ring-purple-500', 'border-purple-500',
+                );
+                if (isActive) {
+                    card.classList.add('ring-2', ...activeRing.split(' '));
+                }
+            });
+        },
+
+        /**
+         * 依 Config.WORKFLOW_STAGES 動態產生「新增簽呈」表單的當前關卡選項。
+         * 避免 HTML 寫死選項與 Config 設定不同步（例如新增「送用印」關卡時）。
+         */
+        populateStageOptions() {
+            const select = document.getElementById('form-current-step');
+            if (!select) return;
+
+            const current = select.value;
+            select.innerHTML = '';
+
+            Config.WORKFLOW_STAGES.forEach((stage, idx) => {
+                const opt = document.createElement('option');
+                opt.value = stage;
+                opt.textContent = stage;
+                if (stage === current) {
+                    opt.selected = true;
+                } else if (!current && idx === 0) {
+                    opt.selected = true; // 預設選取第一個關卡
+                }
+                select.appendChild(opt);
+            });
         },
 
         /**
@@ -1370,12 +1521,123 @@ const Utils = {
     isNonEmpty(value) {
         return typeof value === 'string' && value.trim().length > 0;
     },
+
+    /**
+     * 將文件的 status 歸類為統計卡片 / 狀態篩選使用的分類。
+     * 與 UI.Render._calcStats 共用同一套規則：
+     * 非「用印結案」「被駁回」「用印中」的所有狀態（包含「審核中」「送用印」等）皆歸為 'pending'。
+     *
+     * @param {string} status 文件的 status 欄位
+     * @returns {'pending'|'approved'|'rejected'|'stamping'}
+     */
+    getStatusBucket(status) {
+        const { APPROVED, REJECTED } = Config.TERMINAL_STATUSES;
+        if (status === APPROVED)  return 'approved';
+        if (status === REJECTED)  return 'rejected';
+        // 「用印中」與「送用印」皆歸屬於 stamping 分類
+        if (status === '用印中' || status === '送用印') return 'stamping';
+        return 'pending';
+    },
 };
 
 /* ══════════════════════════════════════════════════
    App — 高階商業邏輯
    ══════════════════════════════════════════════════ */
 const App = {
+    /**
+     * 依「簽核歷程」最後一筆節點，回推並同步 doc.currentStep 與 doc.status。
+     * 確保總表顯示的「當前關卡」「狀態」與時間軸最新節點完全一致。
+     *
+     * 判斷規則（由上至下，符合第一個條件即回傳）：
+     *  1. 最後節點 stage（去除「審核中」字尾後）為結案狀態
+     *     （Config.TERMINAL_STATUSES.APPROVED「用印結案」或 REJECTED「被駁回」）
+     *       → currentStep = status = 該結案狀態文字
+     *  2. 最後節點 stage（去除「審核中」字尾後）屬於 Config.STAGE_AS_STATUS
+     *     （例如「送用印」）
+     *       → currentStep = status = 該關卡名稱（「送用印」）
+     *  3. 最後節點 stage（去除「審核中」字尾後）屬於 Config.WORKFLOW_STAGES 其他一般關卡
+     *       → currentStep = 該關卡名稱，status = '審核中'
+     *  4. 其他自訂備註類節點（不符合上述任何關卡名稱）
+     *       → 不變更 currentStep / status
+     *
+     * @param {Object} doc 文件資料（會被直接修改）
+     */
+    syncStatusFromHistory(doc) {
+        const history = Array.isArray(doc.history) ? doc.history : [];
+        if (history.length === 0) return;
+
+        const last = history[history.length - 1];
+        const stage = (last?.stage ?? '').trim();
+        if (!stage) return;
+
+        // 去掉「審核中」字尾，取得純關卡 / 狀態名稱（例如「送用印審核中」→「送用印」）
+        const SUFFIX = '審核中';
+        const baseStage = stage.endsWith(SUFFIX) ? stage.slice(0, -SUFFIX.length) : stage;
+
+        const { APPROVED, REJECTED } = Config.TERMINAL_STATUSES;
+
+        // 1. 結案狀態：用印結案 / 被駁回 → 當前關卡與狀態皆顯示為該結案文字
+        if (baseStage === APPROVED || baseStage === REJECTED) {
+            doc.currentStep = baseStage;
+            doc.status = baseStage;
+            return;
+        }
+
+        // 2. 特殊關卡視為狀態：例如「送用印」 → 當前關卡與狀態皆顯示為「送用印」
+        if (Config.STAGE_AS_STATUS.includes(baseStage)) {
+            doc.currentStep = baseStage;
+            doc.status = baseStage;
+            return;
+        }
+
+        // 3. 一般審核關卡（財務部、法務、採購部、副總...）→ 狀態統一為「審核中」
+        if (Config.WORKFLOW_STAGES.includes(baseStage)) {
+            doc.currentStep = baseStage;
+            doc.status = '審核中';
+            return;
+        }
+        // 4. 其他自訂文字節點（如備註）→ 不影響 currentStep / status
+    },
+
+    /**
+     * 集中處理單一文件的更新流程：
+     *   1. 寫回雲端 API
+     *   2. 同步 State.allDocuments / State.filteredDocuments 中對應的資料
+     *   3. 觸發 UI.Render.renderList() 與（若該文件為目前選取項）UI.Render.renderDetail()
+     *
+     * 任何修改 doc 內容並需要寫回的流程，都應透過此方法統一處理，
+     * 確保總表與詳情面板的「當前關卡」「狀態」即時保持一致。
+     *
+     * @param {Object} doc 已修改完成、待寫回的文件物件
+     * @param {boolean} [syncStatus=false] 是否先依歷程回推 currentStep / status
+     * @returns {Promise<void>}
+     * @throws {Error} API 更新失敗時拋出，由呼叫端處理 Toast 顯示
+     */
+    async updateDocument(doc, syncStatus = false) {
+        if (syncStatus) this.syncStatusFromHistory(doc);
+
+        // 寫回雲端
+        await Api.update(doc.id, { data: doc });
+
+        // ✅ 同步 State 中的兩份資料陣列，確保總表立即反映最新值
+        const allIdx = State.allDocuments.findIndex(d => d.id === doc.id);
+        if (allIdx !== -1) State.allDocuments[allIdx] = doc;
+
+        const filteredIdx = State.filteredDocuments.findIndex(d => d.id === doc.id);
+        if (filteredIdx !== -1) State.filteredDocuments[filteredIdx] = doc;
+
+        // ✅ 觸發總表重繪，使「當前關卡」「狀態」欄位即時更新
+        UI.Render.renderList();
+
+        // 若此文件正是目前選取的詳情面板，同步更新狀態徽章
+        if (State.currentSelectedIndex !== null) {
+            const cur = State.filteredDocuments[State.currentSelectedIndex];
+            if (cur && cur.id === doc.id) {
+                UI.Render.renderDetail(cur, false);
+            }
+        }
+    },
+
     /**
      * 從雲端重新取得所有文件並刷新畫面
      * @param {boolean} [silent=false] 是否跳過 Loading 指示器
@@ -1425,9 +1687,15 @@ const App = {
         const keyword = document.getElementById('search-input')?.value.trim().toLowerCase() ?? '';
         const year    = State.currentYear;
         const month   = State.currentMonth;
+        const statusFilter = State.filterStatus || 'all';
 
         State.filteredDocuments = State.allDocuments.filter(doc => {
             if (!doc) return false;
+
+            // ── 統計卡片狀態篩選 ──
+            if (statusFilter !== 'all' && Utils.getStatusBucket(doc.status) !== statusFilter) {
+                return false;
+            }
 
             // ── 年月篩選 ──
             if (year || month) {
@@ -1461,7 +1729,7 @@ const App = {
         // 更新「清除篩選」按鈕可見性
         const clearBtn = document.getElementById('clear-filter-btn');
         if (clearBtn) {
-            const hasFilter = year || month || keyword;
+            const hasFilter = year || month || keyword || statusFilter !== 'all';
             clearBtn.classList.toggle('hidden', !hasFilter);
         }
 
@@ -1548,7 +1816,7 @@ const App = {
             ['form-title', 'form-applicant', 'form-dept', 'form-content'].forEach(id => {
                 document.getElementById(id).value = '';
             });
-            document.getElementById('form-current-step').value = '財務部';
+            document.getElementById('form-current-step').value = Config.WORKFLOW_STAGES[0];
             document.getElementById('form-submit-date').value = Utils.todayString(); // ✅ 清空後重設為今日
             await this.loadDocuments();
         } catch (err) {
@@ -1590,7 +1858,7 @@ const App = {
     /**
      * 更新文件狀態（送下一關、核准結案、駁回、補正重送）
      *
-     * @param {string} targetStatus 目標狀態字串：'審核中' | '已核准' | '被駁回'
+     * @param {string} targetStatus 目標狀態字串：'審核中' | Config.TERMINAL_STATUSES.APPROVED（'用印結案'） | Config.TERMINAL_STATUSES.REJECTED（'被駁回'）
      * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於切換 Loading 樣式）
      * @param {'normal'|'resubmit'} [panel='normal'] 目前顯示的操作面板。
      *   - 'normal'   : 一般審核面板（action-date / action-stage / action-note）
@@ -1608,6 +1876,7 @@ const App = {
         if (State.currentSelectedIndex === null || !State.isAdmin) return;
 
         const doc = State.filteredDocuments[State.currentSelectedIndex];
+        const { REJECTED } = Config.TERMINAL_STATUSES;
 
         // 從正確的面板讀取所有欄位，日期來源不再含糊
         const { stageVal, dateVal, noteVal } = this._readActionFields(panel);
@@ -1627,30 +1896,27 @@ const App = {
         doc.history.push({
             time:   chosenDate,           // ✅ 正確使用從對應面板讀取的日期
             stage:  targetStatus,
-            note:   noteVal || (targetStatus === '被駁回' ? '文件已駁回' : '已補正送審'),
-            status: targetStatus === '被駁回' ? 'error' : 'success',
+            note:   noteVal || (targetStatus === REJECTED ? '文件已駁回' : '已補正送審'),
+            status: targetStatus === REJECTED ? 'error' : 'success',
         });
 
         if (targetStatus === '審核中') {
             // 「送下一關」或「補正重送」：額外新增一筆「等待審核」節點
-            doc.currentStep = stageVal;
-            doc.status      = '審核中';
             doc.history.push({
                 time:   chosenDate,       // ✅ 同一批操作共用同一個 chosenDate，時間軸一致
                 stage:  `${stageVal}審核中`,
                 note:   '等待處理',
                 status: 'pending',
             });
-        } else {
-            doc.status = targetStatus;
         }
 
         doc.updatedAt = chosenDate;       // ✅ 列表的「更新時間」欄位也同步使用選定日期
 
         UI.Loading.setButton(triggerBtn, true);
         try {
-            await Api.update(doc.id, { data: doc });
-            UI.Toast.show('success', `狀態已更新為「${targetStatus}」`);
+            // ✅ 依最新歷程節點回推 currentStep / status，並統一寫回 + 同步總表重繪
+            await App.updateDocument(doc, true);
+            UI.Toast.show('success', `狀態已更新為「${doc.status}」`);
             await this.loadDocuments();
         } catch (err) {
             console.error('[App.updateDocStatus]', err);
@@ -1661,19 +1927,22 @@ const App = {
     },
 
     /**
-     * 刪除目前選取的文件
+     * 刪除目前選取的文件（管理員專用）
      */
     async deleteDocument() {
-        if (!confirm('確定要刪除這筆簽呈嗎？此操作無法復原。')) return;
+        if (State.currentSelectedIndex === null || !State.isAdmin) return;
+        if (!confirm('確定要永久刪除此簽呈嗎？')) return;
+
         const doc = State.filteredDocuments[State.currentSelectedIndex];
-        const btn = document.getElementById('delete-btn');
+        if (!doc) return;
+        const btn = document.getElementById('delete-doc-btn');
 
         UI.Loading.setButton(btn, true);
         try {
             await Api.remove(doc.id);
             State.currentSelectedIndex = null;
             document.getElementById('detail-section').classList.add('hidden');
-            UI.Toast.show('success', '簽呈已成功刪除');
+            UI.Toast.show('success', '刪除成功');
             await this.loadDocuments();
         } catch (err) {
             console.error('[App.deleteDocument]', err);
@@ -1690,6 +1959,22 @@ const App = {
 document.addEventListener('DOMContentLoaded', () => {
     // ── Session 恢復：頁面載入時優先檢查 localStorage，避免重新整理後登出 ──
     Auth.restoreSession();
+
+    // ✅ 依 Config.WORKFLOW_STAGES 動態產生「當前關卡」下拉選單，確保新關卡（如「送用印」）自動納入
+    UI.Render.populateStageOptions();
+
+    // ── 統計卡片點選篩選 ──
+    // 點擊卡片切換 State.filterStatus；再次點擊同一張卡片則取消篩選（回到「全部」）。
+    document.querySelectorAll('.stats-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const target = card.dataset.filter || 'all';
+            State.filterStatus = (State.filterStatus === target) ? 'all' : target;
+            UI.Render.updateStatsCardSelection();
+            App.applyFilter();
+        });
+    });
+    // 初始化卡片選取樣式（預設「全部」不顯示框線）
+    UI.Render.updateStatsCardSelection();
 
     // 導覽列：管理員登入 / 登出
     document.getElementById('auth-btn').addEventListener('click', () => {
@@ -1726,8 +2011,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('search-input').value = '';
         document.getElementById('filter-year').value  = '';
         document.getElementById('filter-month').value = '';
-        State.currentYear  = '';
-        State.currentMonth = '';
+        State.currentYear   = '';
+        State.currentMonth  = '';
+        State.filterStatus  = 'all';
+        UI.Render.updateStatsCardSelection();
         App.applyFilter();
     });
 
@@ -1742,6 +2029,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 新增簽呈
     document.getElementById('submit-btn').addEventListener('click', () => App.addDocument());
+
+    // 刪除簽呈（詳情面板，管理員專用）
+    document.getElementById('delete-doc-btn').addEventListener('click', () => App.deleteDocument());
 
     // 初始載入資料
     App.loadDocuments();
