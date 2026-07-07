@@ -93,7 +93,7 @@
         </div>
         <div id="stats-card-pending" data-filter="pending"
             class="stats-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer transition hover:shadow-md hover:border-gray-300">
-            <div class="p-3 bg-amber-50 text-amber-600 rounded-lg mr-4"><i class="fa-solid fa-spinner text-xl animate-spin"></i></div>
+            <div class="p-3 bg-amber-50 text-amber-600 rounded-lg mr-4"><i class="fa-solid fa-spinner text-xl"></i></div>
             <div>
                 <p class="text-sm text-gray-500 font-medium">審核中</p>
                 <p id="count-pending" class="text-2xl font-bold text-amber-600">0</p>
@@ -1180,8 +1180,10 @@ const UI = {
             }
 
             // ✅ 依 Config.WORKFLOW_STAGES 動態生成，新增關卡（如「送用印」）時自動納入建議清單
+            // 若關卡本身即代表一種特殊狀態（Config.STAGE_AS_STATUS，例如「送用印」），
+            // 則直接顯示關卡名稱本身，不加「審核中」字尾。
             const STAGES = [
-                ...Config.WORKFLOW_STAGES.map(s => `${s}審核中`),
+                ...Config.WORKFLOW_STAGES.map(s => Config.STAGE_AS_STATUS.includes(s) ? s : `${s}審核中`),
                 '審核中', Config.TERMINAL_STATUSES.APPROVED, Config.TERMINAL_STATUSES.REJECTED,
             ];
 
