@@ -6,6 +6,9 @@
     <title> HYE-簽呈進度追蹤系統</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* Toast 動畫 */
         @keyframes slideInRight {
@@ -42,13 +45,197 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-        /* backdrop-blur-sm（Modal 背景）*/
+        /* ── backdrop-blur-sm（Modal 背景）── */
         .backdrop-blur-sm { backdrop-filter: blur(4px); }
         /* ring-2 */
         .ring-2 {
             --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width,0px) var(--tw-ring-offset-color,#fff);
             --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width,0px)) var(--tw-ring-color,rgba(59,130,246,.5));
             box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow,0 0 #0000);
+        }
+
+        /* ══════════════════════════════════════════════════════════
+           沉穩內斂配色系統 — 覆寫 Tailwind 預設鮮豔色階
+           以低飽和度、偏暖中性色調取代原本的高彩度 indigo / amber /
+           red / green / purple / blue，並統一由 CSS 變數集中管理。
+           ══════════════════════════════════════════════════════════ */
+        :root {
+            /* 中性色（暖灰紙感，取代預設冷灰） */
+            --c-gray-50:  #F6F5F1;
+            --c-gray-100: #EDEBE3;
+            --c-gray-200: #E1DDD2;
+            --c-gray-300: #CBC5B6;
+            --c-gray-400: #9C9585;
+            --c-gray-500: #7C7565;
+            --c-gray-600: #5D5849;
+            --c-gray-700: #454034;
+            --c-gray-800: #302C24;
+            --c-gray-900: #201D18;
+
+            /* 主色：墨藍灰（取代 indigo） */
+            --c-ink-50:  #EEF0F1;
+            --c-ink-100: #DEE3E6;
+            --c-ink-200: #C6CDD3;
+            --c-ink-300: #A7B1BB;
+            --c-ink-400: #7E8B98;
+            --c-ink-500: #5D6C7A;
+            --c-ink-600: #46556A;
+            --c-ink-700: #374353;
+
+            /* 琥珀（審核中／進行中，取代 amber） */
+            --c-amber-50:  #F5F0E5;
+            --c-amber-100: #EBE0CB;
+            --c-amber-200: #DCC99F;
+            --c-amber-400: #BC9A54;
+            --c-amber-500: #A98843;
+            --c-amber-600: #886C35;
+            --c-amber-800: #5A4622;
+
+            /* 灰綠（用印結案／完成，取代 green、emerald） */
+            --c-green-50:  #EDF1E9;
+            --c-green-100: #DAE3D3;
+            --c-green-200: #C2D1B9;
+            --c-green-500: #6C8459;
+            --c-green-600: #556844;
+            --c-green-800: #37432C;
+
+            /* 磚紅（被暫緩，取代 red） */
+            --c-red-50:  #F3E9E6;
+            --c-red-100: #E6D3CD;
+            --c-red-300: #C89A8C;
+            --c-red-400: #B78271;
+            --c-red-500: #A26855;
+            --c-red-600: #87533F;
+            --c-red-700: #6E4232;
+            --c-red-800: #543225;
+
+            /* 灰藍（統計／資訊，取代 blue） */
+            --c-blue-50:  #EAEEF0;
+            --c-blue-100: #D6DDE1;
+            --c-blue-500: #5C7484;
+            --c-blue-600: #4A6070;
+            --c-blue-800: #313F49;
+
+            /* 灰紫（用印中，取代 purple） */
+            --c-purple-50:  #EEEAEB;
+            --c-purple-100: #DCD3D7;
+            --c-purple-500: #786470;
+            --c-purple-600: #61505A;
+            --c-purple-700: #4D3F47;
+        }
+
+        /* 中性灰階 */
+        .bg-gray-50   { background-color: var(--c-gray-50); }
+        .bg-gray-100  { background-color: var(--c-gray-100); }
+        .bg-gray-800  { background-color: var(--c-gray-800); }
+        .bg-gray-900  { background-color: var(--c-gray-900); }
+        .border-gray-100 { border-color: var(--c-gray-100); }
+        .border-gray-200 { border-color: var(--c-gray-200); }
+        .border-gray-300 { border-color: var(--c-gray-300); }
+        .text-gray-400 { color: var(--c-gray-400); }
+        .text-gray-500 { color: var(--c-gray-500); }
+        .text-gray-600 { color: var(--c-gray-600); }
+        .text-gray-700 { color: var(--c-gray-700); }
+        .text-gray-800 { color: var(--c-gray-800); }
+        .text-gray-900 { color: var(--c-gray-900); }
+        .hover\:bg-gray-50:hover  { background-color: var(--c-gray-50); }
+        .hover\:bg-gray-100:hover { background-color: var(--c-gray-100); }
+        .hover\:bg-gray-700:hover { background-color: var(--c-gray-700); }
+        .hover\:border-gray-300:hover { border-color: var(--c-gray-300); }
+        .hover\:border-gray-400:hover { border-color: var(--c-gray-400); }
+        .hover\:text-gray-700:hover   { color: var(--c-gray-700); }
+
+        /* 主色：墨藍灰（取代 indigo） */
+        .bg-indigo-50   { background-color: var(--c-ink-50); }
+        .bg-indigo-50\/50 { background-color: rgba(238,240,241,.6); }
+        .bg-indigo-100  { background-color: var(--c-ink-100); }
+        .bg-indigo-600  { background-color: var(--c-ink-600); }
+        .border-indigo-100 { border-color: var(--c-ink-100); }
+        .border-indigo-200 { border-color: var(--c-ink-200); }
+        .border-indigo-300 { border-color: var(--c-ink-300); }
+        .border-indigo-600 { border-color: var(--c-ink-600); }
+        .ring-indigo-300   { --tw-ring-color: var(--c-ink-300); }
+        .text-indigo-400 { color: var(--c-ink-400); }
+        .text-indigo-500 { color: var(--c-ink-500); }
+        .text-indigo-600 { color: var(--c-ink-600); }
+        .text-indigo-700 { color: var(--c-ink-700); }
+        .hover\:bg-indigo-50:hover  { background-color: var(--c-ink-50); }
+        .hover\:bg-indigo-700:hover { background-color: var(--c-ink-700); }
+        .hover\:border-indigo-500:hover { border-color: var(--c-ink-500); }
+        .hover\:text-indigo-600:hover { color: var(--c-ink-600); }
+        .hover\:text-indigo-700:hover { color: var(--c-ink-700); }
+        .hover\:text-indigo-800:hover { color: var(--c-ink-700); }
+        .focus\:border-indigo-400:focus { border-color: var(--c-ink-400); }
+        .focus\:border-indigo-500:focus { border-color: var(--c-ink-500); }
+
+        /* 琥珀（審核中／進行中） */
+        .bg-amber-50  { background-color: var(--c-amber-50); }
+        .bg-amber-100 { background-color: var(--c-amber-100); }
+        .bg-amber-400 { background-color: var(--c-amber-400); }
+        .bg-amber-500 { background-color: var(--c-amber-500); }
+        .border-amber-200 { border-color: var(--c-amber-200); }
+        .border-amber-500 { border-color: var(--c-amber-500); }
+        .ring-amber-500   { --tw-ring-color: var(--c-amber-500); }
+        .text-amber-600 { color: var(--c-amber-600); }
+        .text-amber-800 { color: var(--c-amber-800); }
+
+        /* 灰綠（用印結案／完成） */
+        .bg-green-50   { background-color: var(--c-green-50); }
+        .bg-green-100  { background-color: var(--c-green-100); }
+        .bg-green-500  { background-color: var(--c-green-500); }
+        .bg-green-600  { background-color: var(--c-green-600); }
+        .bg-emerald-50 { background-color: var(--c-green-50); }
+        .border-green-500   { border-color: var(--c-green-500); }
+        .border-emerald-200 { border-color: var(--c-green-200); }
+        .ring-green-500     { --tw-ring-color: var(--c-green-500); }
+        .text-green-600   { color: var(--c-green-600); }
+        .text-green-800   { color: var(--c-green-800); }
+        .text-emerald-600 { color: var(--c-green-600); }
+        .focus\:border-emerald-500:focus { border-color: var(--c-green-500); }
+
+        /* 磚紅（被暫緩） */
+        .bg-red-50  { background-color: var(--c-red-50); }
+        .bg-red-100 { background-color: var(--c-red-100); }
+        .bg-red-500 { background-color: var(--c-red-500); }
+        .bg-red-600 { background-color: var(--c-red-600); }
+        .border-red-300 { border-color: var(--c-red-300); }
+        .border-red-500 { border-color: var(--c-red-500); }
+        .ring-red-500   { --tw-ring-color: var(--c-red-500); }
+        .text-red-400 { color: var(--c-red-400); }
+        .text-red-500 { color: var(--c-red-500); }
+        .text-red-600 { color: var(--c-red-600); }
+        .text-red-800 { color: var(--c-red-800); }
+        .hover\:bg-red-50:hover  { background-color: var(--c-red-50); }
+        .hover\:bg-red-700:hover { background-color: var(--c-red-700); }
+        .hover\:text-red-600:hover { color: var(--c-red-600); }
+
+        /* 灰藍（統計卡片／資訊） */
+        .bg-blue-50  { background-color: var(--c-blue-50); }
+        .bg-blue-100 { background-color: var(--c-blue-100); }
+        .border-blue-500 { border-color: var(--c-blue-500); }
+        .ring-blue-500   { --tw-ring-color: var(--c-blue-500); }
+        .text-blue-600 { color: var(--c-blue-600); }
+        .text-blue-800 { color: var(--c-blue-800); }
+
+        /* 灰紫（用印中）— 覆蓋前段舊版補丁 */
+        .bg-purple-50  { background-color: var(--c-purple-50); }
+        .bg-purple-100 { background-color: var(--c-purple-100); }
+        .text-purple-600 { color: var(--c-purple-600); }
+        .text-purple-700 { color: var(--c-purple-700); }
+        .ring-purple-500   { --tw-ring-color: var(--c-purple-500); }
+        .border-purple-500 { border-color: var(--c-purple-500); }
+
+        /* ── 排版微調：降低圓角與陰影的存在感，質感更沉穩 ── */
+        .rounded-xl { border-radius: .5rem; }
+        .rounded-lg { border-radius: .375rem; }
+        .shadow-sm  { box-shadow: 0 1px 2px 0 rgba(32,29,24,.06); }
+        .shadow-md  { box-shadow: 0 3px 8px -2px rgba(32,29,24,.09), 0 1px 3px -1px rgba(32,29,24,.06); }
+
+        /* ── 字體：Noto Sans TC + Inter，取代系統預設字型，質感更精緻穩重 ── */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            letter-spacing: .01em;
         }
     </style>
 </head>
@@ -103,7 +290,7 @@
             class="stats-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer transition hover:shadow-md hover:border-gray-300">
             <div class="p-3 bg-red-50 text-red-600 rounded-lg mr-4"><i class="fa-solid fa-circle-xmark text-xl"></i></div>
             <div>
-                <p class="text-sm text-gray-500 font-medium">被駁回</p>
+                <p class="text-sm text-gray-500 font-medium">被暫緩</p>
                 <p id="count-rejected" class="text-2xl font-bold text-red-600">0</p>
             </div>
         </div>
@@ -178,15 +365,16 @@
                         <thead>
                             <tr class="bg-gray-100 text-gray-600 text-xs uppercase font-semibold">
                                 <th class="px-6 py-3 w-1/2">編號 / 主旨 / 內容說明</th>
-                                <th class="px-6 py-3">申請人</th>
-                                <th class="px-6 py-3">當前關卡</th>
-                                <th class="px-6 py-3">狀態</th>
-                                <th class="px-6 py-3">更新時間</th>
+                                <th class="px-6 py-3 whitespace-nowrap">申請人</th>
+                                <th class="px-6 py-3 whitespace-nowrap">當前關卡</th>
+                                <th class="px-6 py-3 whitespace-nowrap">狀態</th>
+                                <th class="px-6 py-3 whitespace-nowrap">送件時間</th>
+                                <th class="px-6 py-3 whitespace-nowrap">更新時間</th>
                             </tr>
                         </thead>
                         <tbody id="document-list-body" class="divide-y divide-gray-100 text-sm">
                             <tr>
-                                <td colspan="5" class="px-6 py-10 text-center text-gray-400">
+                                <td colspan="6" class="px-6 py-10 text-center text-gray-400">
                                     正在從雲端資料庫載入最新進度...
                                 </td>
                             </tr>
@@ -389,13 +577,21 @@ const Config = Object.freeze({
 
     /**
      * 結案狀態清單（最終態，非循環審核關卡）。
-     * 統一定義於此，避免「用印結案」「被駁回」等字串散落於各處，
+     * 統一定義於此，避免「用印結案」「被暫緩」等字串散落於各處，
      * 未來若需調整文字，只需修改此處。
      */
     TERMINAL_STATUSES: Object.freeze({
         APPROVED: '用印結案',
-        REJECTED: '被駁回',
+        REJECTED: '被暫緩',
     }),
+
+    /**
+     * 時間軸節點顯示為「暫緩」（非結案，僅暫時擱置）時，
+     * 總表「當前關卡」「狀態」欄位統一顯示的文字。
+     * 與 Config.TERMINAL_STATUSES.REJECTED（「被暫緩」，結案狀態）不同，
+     * 「暫緩中」仍可能後續恢復審核，但統計/篩選上一併歸入「被暫緩」分類。
+     */
+    HOLD_STATUS: '暫緩中',
 
     /**
      * 在 WORKFLOW_STAGES 中，有些關卡本身即代表一種特殊狀態，
@@ -438,7 +634,7 @@ const State = {
      * - 'all'      : 全部（總簽呈數卡片，或未選取任何卡片）
      * - 'pending'  : 審核中（包含「審核中」等所有未結案且非用印狀態）
      * - 'approved' : 用印結案（Config.TERMINAL_STATUSES.APPROVED）
-     * - 'rejected' : 被駁回（Config.TERMINAL_STATUSES.REJECTED）
+     * - 'rejected' : 被暫緩（Config.TERMINAL_STATUSES.REJECTED）
      * - 'stamping' : 用印中（status 欄位為「用印中」）
      */
     filterStatus: 'all',
@@ -748,7 +944,8 @@ const UI = {
          */
         _getStatusClass(status) {
             if (status === Config.TERMINAL_STATUSES.APPROVED) return 'bg-green-100 text-green-800';
-            if (status === Config.TERMINAL_STATUSES.REJECTED) return 'bg-red-100 text-red-800';
+            // ✅「暫緩中」與「被暫緩」共用同一套磚紅樣式，視覺上一併歸類於「被暫緩」。
+            if (status === Config.TERMINAL_STATUSES.REJECTED || status === Config.HOLD_STATUS) return 'bg-red-100 text-red-800';
             if (status === '用印中' || status === '送用印') return 'bg-purple-100 text-purple-700';
             if (Config.STAGE_AS_STATUS.includes(status)) return 'bg-blue-100 text-blue-800';
             return 'bg-amber-100 text-amber-800';
@@ -782,25 +979,32 @@ const UI = {
             idCell.querySelector('.line-clamp-2').textContent = content;
 
             const applicantCell = document.createElement('td');
-            applicantCell.className = 'px-6 py-4 text-gray-600';
+            applicantCell.className = 'px-6 py-4 text-gray-600 whitespace-nowrap';
             applicantCell.innerHTML = `<span></span><br><span class="text-xs text-gray-400"></span>`;
             applicantCell.querySelectorAll('span')[0].textContent = doc.applicant ?? '';
             applicantCell.querySelectorAll('span')[1].textContent = doc.dept ?? '';
 
             const stepCell = document.createElement('td');
-            stepCell.className = 'px-6 py-4 font-medium text-gray-700';
+            stepCell.className = 'px-6 py-4 font-medium text-gray-700 whitespace-nowrap';
             stepCell.textContent = doc.currentStep ?? '';
 
             const statusCell = document.createElement('td');
-            statusCell.className = 'px-6 py-4';
-            statusCell.innerHTML = `<span class="px-2.5 py-1 text-xs font-semibold rounded-full ${statusClass}"></span>`;
+            statusCell.className = 'px-6 py-4 whitespace-nowrap';
+            statusCell.innerHTML = `<span class="px-2.5 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${statusClass}"></span>`;
             statusCell.querySelector('span').textContent = doc.status ?? '';
 
+            // ✅ 送件時間：取自簽核歷程第一筆節點的收件時間（初次送審日），
+            //    與「更新時間」（最新一次異動日）分開顯示，避免混淆。
+            const submitCell = document.createElement('td');
+            submitCell.className = 'px-6 py-4 text-xs text-gray-400 whitespace-nowrap';
+            const firstNode = Array.isArray(doc.history) && doc.history.length > 0 ? doc.history[0] : null;
+            submitCell.textContent = firstNode?.time ?? '';
+
             const dateCell = document.createElement('td');
-            dateCell.className = 'px-6 py-4 text-xs text-gray-400';
+            dateCell.className = 'px-6 py-4 text-xs text-gray-400 whitespace-nowrap';
             dateCell.textContent = doc.updatedAt ?? '';
 
-            tr.append(idCell, applicantCell, stepCell, statusCell, dateCell);
+            tr.append(idCell, applicantCell, stepCell, statusCell, submitCell, dateCell);
             return tr;
         },
 
@@ -831,7 +1035,7 @@ const UI = {
             }
 
             if (total === 0) {
-                listBody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400">目前無符合條件的簽呈資料。</td></tr>';
+                listBody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-400">目前無符合條件的簽呈資料。</td></tr>';
                 document.getElementById('pagination-bar')?.classList.add('hidden');
                 return;
             }
@@ -971,14 +1175,16 @@ const UI = {
                     this._renderDetailEditableFields(doc);
                 } else {
                     // 同一份文件重新渲染（如歷程儲存後 reload）：只更新值，不重建 DOM
-                    const t = document.getElementById('detail-title-input');
-                    const a = document.getElementById('detail-applicant-input');
-                    const d = document.getElementById('detail-dept-input');
-                    const c = document.getElementById('detail-content-input');
-                    if (t) t.value = doc.title ?? '';
-                    if (a) a.value = doc.applicant ?? '';
-                    if (d) d.value = doc.dept ?? '';
-                    if (c) c.value = doc.content ?? '';
+                    const t  = document.getElementById('detail-title-input');
+                    const a  = document.getElementById('detail-applicant-input');
+                    const d  = document.getElementById('detail-dept-input');
+                    const c  = document.getElementById('detail-content-input');
+                    const sd = document.getElementById('detail-submitdate-input');
+                    if (t)  t.value  = doc.title ?? '';
+                    if (a)  a.value  = doc.applicant ?? '';
+                    if (d)  d.value  = doc.dept ?? '';
+                    if (c)  c.value  = doc.content ?? '';
+                    if (sd) sd.value = Utils.getSubmitDate(doc);
                 }
             } else {
                 // ── 訪客：純文字（XSS 安全：全用 textContent）──
@@ -1001,7 +1207,14 @@ const UI = {
                     p2.innerHTML = '<strong>事由：</strong>';
                     const spanCont = document.createElement('span'); spanCont.id = 'detail-content';   spanCont.textContent = doc.content || '無詳細說明';
                     p2.append(spanCont);
-                    infoBox.append(p1, p2);
+                    // ✅ 送件日期：取自簽核歷程第一筆節點的收件時間（初次送審日），訪客唯讀顯示
+                    const p3 = document.createElement('p');
+                    p3.innerHTML = '<strong>送件日期：</strong>';
+                    const spanSubmit = document.createElement('span');
+                    spanSubmit.id = 'detail-submitdate';
+                    spanSubmit.textContent = Utils.getSubmitDate(doc) || '--';
+                    p3.append(spanSubmit);
+                    infoBox.append(p1, p2, p3);
                 }
             }
 
@@ -1034,7 +1247,7 @@ const UI = {
                 infoBox.innerHTML = '';   // 清除靜態 <p> 文字，重建為 input 群組
                 infoBox.className = 'text-xs mb-4 bg-indigo-50 border border-indigo-100 p-3 rounded-lg space-y-2';
 
-                const mkField = (labelText, id, value, placeholder) => {
+                const mkField = (labelText, id, value, placeholder, type = 'text') => {
                     const wrap  = document.createElement('div');
                     wrap.className = 'flex items-center gap-2';
                     const label = document.createElement('label');
@@ -1042,10 +1255,10 @@ const UI = {
                     label.className = 'font-semibold text-gray-600 w-16 shrink-0';
                     label.textContent = labelText;   // ✅ textContent 防 XSS
                     const inp = document.createElement('input');
-                    inp.type = 'text';
+                    inp.type = type;
                     inp.id   = id;
                     inp.value = value;               // ✅ .value 賦值防 XSS
-                    inp.placeholder = placeholder;
+                    if (type === 'text') inp.placeholder = placeholder;
                     inp.className = 'flex-1 border-b border-dashed border-indigo-200 bg-transparent focus:outline-none focus:border-indigo-500 text-gray-700 py-0.5';
                     wrap.append(label, inp);
                     return wrap;
@@ -1072,6 +1285,9 @@ const UI = {
                     mkField('申請人：', 'detail-applicant-input', doc.applicant ?? '', '申請人姓名'),
                     mkField('部門：',   'detail-dept-input',      doc.dept ?? '',      '申請部門'),
                     mkTextarea('事由：', 'detail-content-input',  doc.content ?? '',   '簽呈內容說明'),
+                    // ✅ 送件日期：取自簽核歷程第一筆節點的收件時間，管理員可直接於此編輯，
+                    //    儲存時會同步寫回 doc.history[0].time（並同步時間軸編輯器快取）。
+                    mkField('送件日期：', 'detail-submitdate-input', Utils.getSubmitDate(doc), '', 'date'),
                 );
             }
 
@@ -1095,13 +1311,18 @@ const UI = {
                     document.getElementById('save-basic-btn').addEventListener('click', async () => {
                         const btn      = document.getElementById('save-basic-btn');
                         const btnText  = document.getElementById('save-basic-btn-text');
-                        const titleVal = document.getElementById('detail-title-input')?.value.trim()     ?? '';
-                        const appVal   = document.getElementById('detail-applicant-input')?.value.trim() ?? '';
-                        const deptVal  = document.getElementById('detail-dept-input')?.value.trim()      ?? '';
-                        const contVal  = document.getElementById('detail-content-input')?.value.trim()   ?? '';
+                        const titleVal  = document.getElementById('detail-title-input')?.value.trim()      ?? '';
+                        const appVal    = document.getElementById('detail-applicant-input')?.value.trim()  ?? '';
+                        const deptVal   = document.getElementById('detail-dept-input')?.value.trim()       ?? '';
+                        const contVal   = document.getElementById('detail-content-input')?.value.trim()    ?? '';
+                        const submitVal = document.getElementById('detail-submitdate-input')?.value        ?? '';
 
                         if (!titleVal) {
                             UI.Toast.show('error', '簽呈主旨不可為空');
+                            return;
+                        }
+                        if (!submitVal) {
+                            UI.Toast.show('error', '送件日期不可為空');
                             return;
                         }
 
@@ -1119,6 +1340,24 @@ const UI = {
                             doc.applicant = appVal;
                             doc.dept      = deptVal;
                             doc.content   = contVal;
+
+                            // ✅ 送件日期：寫回簽核歷程第一筆節點的收件時間（history[0].time）。
+                            //    若尚無歷程（理論上不會發生，保留防呆），則補建一筆初始節點。
+                            if (Array.isArray(doc.history) && doc.history.length > 0) {
+                                doc.history[0].time = submitVal;
+                            } else {
+                                doc.history = [{
+                                    time: submitVal, endTime: '',
+                                    stage: doc.currentStep ? `${doc.currentStep}審核中` : '',
+                                    note: '初次送審', status: 'pending',
+                                }];
+                            }
+                            // ✅ 同步時間軸編輯器的工作副本快取（container._editHistory），
+                            //    避免 renderTimeline 因 doc.id 未變而沿用快取中的舊日期。
+                            const timelineContainer = document.getElementById('timelineContainer');
+                            if (timelineContainer?._editDocId === doc.id && Array.isArray(timelineContainer._editHistory) && timelineContainer._editHistory.length > 0) {
+                                timelineContainer._editHistory[0].time = submitVal;
+                            }
 
                             // ✅ 統一透過 App.updateDocument 寫回雲端、同步 State 並重繪總表
                             await App.updateDocument(doc);
@@ -1155,14 +1394,28 @@ const UI = {
                 const frag = document.createDocumentFragment();
                 history.forEach(node => {
                     const colorMap = { error: 'bg-red-500', pending: 'bg-amber-400' };
-                    const color = colorMap[node.status] ?? 'bg-green-500';
+                    const st = App.deriveNodeStatus(node);
+                    const color = colorMap[st] ?? 'bg-green-500';
+                    const stageName = (node.stage ?? '').trim();
+                    // ✅ 「送用印」只顯示收件時間；「用印結案」只顯示完成時間；
+                    //    「暫緩」只顯示暫緩時間；其餘關卡兩者皆顯示。
+                    let timeText;
+                    if (stageName === '送用印') {
+                        timeText = `收件：${node.time ?? '--'}`;
+                    } else if (stageName === Config.TERMINAL_STATUSES.APPROVED) {
+                        timeText = `完成：${node.endTime ?? '--'}`;
+                    } else if (stageName === '暫緩') {
+                        timeText = `暫緩時間：${node.time ?? '--'}`;
+                    } else {
+                        timeText = `收件：${node.time ?? '--'}　完成：${node.endTime ?? '--'}`;
+                    }
                     const item = document.createElement('div');
                     item.className = 'flex gap-4 items-start relative pb-6';
                     item.innerHTML = `
                         <div class="absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white ${color}"></div>
                         <div class="pl-4">
                             <p class="text-sm font-bold text-gray-800">${node.stage ?? ''}</p>
-                            <p class="text-xs text-gray-500">${node.time ?? ''}</p>
+                            <p class="text-xs text-gray-500">${timeText}</p>
                             <p class="text-xs text-gray-600 mt-1">${node.note ?? ''}</p>
                         </div>`;
                     frag.appendChild(item);
@@ -1184,7 +1437,8 @@ const UI = {
             // 則直接顯示關卡名稱本身，不加「審核中」字尾。
             const STAGES = [
                 ...Config.WORKFLOW_STAGES.map(s => Config.STAGE_AS_STATUS.includes(s) ? s : `${s}審核中`),
-                '審核中', Config.TERMINAL_STATUSES.APPROVED, Config.TERMINAL_STATUSES.REJECTED,
+                '暫緩', Config.TERMINAL_STATUSES.APPROVED,
+                // ✅ 「被暫緩」不再出現於關卡名稱建議清單中（僅保留為內部結案狀態常數，供既有資料相容）
             ];
 
             const renderEditor = () => {
@@ -1208,7 +1462,7 @@ const UI = {
                 // ── 各節點 ──
                 history.forEach((node, idx) => {
                     const colorMap = { error: 'bg-red-500', pending: 'bg-amber-400' };
-                    const color = colorMap[node.status] ?? 'bg-green-500';
+                    const color = colorMap[App.deriveNodeStatus(node)] ?? 'bg-green-500';
 
                     const item = document.createElement('div');
                     item.className = 'relative pb-5 border border-dashed border-gray-300 rounded-lg p-2 mb-2 bg-white group';
@@ -1229,25 +1483,57 @@ const UI = {
                     stageInput.setAttribute('list', 'stage-suggestions'); // ✅ list 是 read-only getter，必須用 setAttribute
                     stageInput.addEventListener('input', () => { container._editHistory[idx].stage = stageInput.value; });
 
-                    // 時間
+                    // 收件時間（固定顯示：本關卡開始/收到文件的日期）
+                    const dateWrap = document.createElement('span');
+                    dateWrap.className = 'inline-flex items-center';
+                    const dateLabel = document.createElement('span');
+                    dateLabel.className = 'text-[10px] text-gray-400 mr-0.5';
+                    dateLabel.textContent = '收件';
                     const dateInput = document.createElement('input');
                     dateInput.type = 'date';
                     dateInput.value = node.time ?? '';
+                    dateInput.title = '收件時間';
                     dateInput.className = 'text-xs text-indigo-600 border border-dashed border-indigo-200 rounded px-1 py-0.5 bg-transparent focus:outline-none focus:border-indigo-500 focus:bg-indigo-50';
-                    dateInput.addEventListener('change', () => { container._editHistory[idx].time = dateInput.value; });
+                    dateInput.addEventListener('change', () => { container._editHistory[idx].time = dateInput.value; refreshDot(); });
+                    dateWrap.append(dateLabel, dateInput);
 
-                    // 狀態選擇（顏色點）
-                    const statusSel = document.createElement('select');
-                    statusSel.className = 'text-xs border border-dashed border-gray-300 rounded px-1 py-0.5 bg-white ml-2 text-gray-600 focus:outline-none focus:border-indigo-400';
-                    statusSel.title = '節點狀態（影響顏色）';
-                    [['pending','● 進行中'],['','● 已完成'],['error','● 駁回/錯誤']].forEach(([val, label]) => {
-                        const opt = document.createElement('option');
-                        opt.value = val;
-                        opt.textContent = label;
-                        if ((node.status ?? '') === val) opt.selected = true;
-                        statusSel.appendChild(opt);
-                    });
-                    statusSel.addEventListener('change', () => { container._editHistory[idx].status = statusSel.value || undefined; });
+                    // 完成時間（固定顯示：本關卡完成/放行的日期，選填）
+                    const endWrap = document.createElement('span');
+                    endWrap.className = 'inline-flex items-center';
+                    const endLabel = document.createElement('span');
+                    endLabel.className = 'text-[10px] text-gray-400 ml-2 mr-0.5';
+                    endLabel.textContent = '完成';
+                    const endDateInput = document.createElement('input');
+                    endDateInput.type = 'date';
+                    endDateInput.value = node.endTime ?? '';
+                    endDateInput.title = '完成時間（選填）';
+                    endDateInput.className = 'text-xs text-emerald-600 border border-dashed border-emerald-200 rounded px-1 py-0.5 bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-emerald-50';
+                    endDateInput.addEventListener('change', () => { container._editHistory[idx].endTime = endDateInput.value; refreshDot(); });
+                    endWrap.append(endLabel, endDateInput);
+
+                    // ✅ 狀態列僅顯示「收件」與「完成」兩個時間欄位（不再提供手動狀態下拉選單）。
+                    //    節點顏色改依關卡名稱＋是否已填完成時間自動判斷（App.deriveNodeStatus）。
+                    const refreshDot = () => {
+                        const st = App.deriveNodeStatus(container._editHistory[idx]);
+                        container._editHistory[idx].status = st;
+                        handle.className = `w-3 h-3 rounded-full ${colorMap[st] ?? 'bg-green-500'} inline-block mr-2 cursor-grab active:cursor-grabbing`;
+                    };
+
+                    // ✅ 「送用印」只需收件時間；「用印結案」只需完成時間；
+                    //    「暫緩」只需暫緩時間（沿用收件欄位，僅改標籤文字並隱藏完成欄位）；
+                    //    其餘關卡兩者皆顯示。
+                    const updateDateVisibility = () => {
+                        const baseStage = (stageInput.value || '').trim();
+                        const isSendStamp = baseStage === '送用印';
+                        const isApproved  = baseStage === Config.TERMINAL_STATUSES.APPROVED;
+                        const isHold      = baseStage === '暫緩';
+                        dateWrap.classList.toggle('hidden', isApproved);
+                        endWrap.classList.toggle('hidden', isSendStamp || isHold);
+                        dateLabel.textContent = isHold ? '暫緩時間' : '收件';
+                        dateInput.title = isHold ? '暫緩時間' : '收件時間';
+                        refreshDot();
+                    };
+                    stageInput.addEventListener('input', updateDateVisibility);
 
                     // 說明
                     const noteInput = document.createElement('input');
@@ -1272,7 +1558,7 @@ const UI = {
                     insertBtn.className = 'block text-xs text-indigo-400 hover:text-indigo-600 mb-1 transition';
                     insertBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i>在此前插入節點';
                     insertBtn.addEventListener('click', () => {
-                        container._editHistory.splice(idx, 0, { stage: '', time: Utils.todayString(), note: '', status: 'pending' });
+                        container._editHistory.splice(idx, 0, { stage: '', time: Utils.todayString(), endTime: '', note: '', status: 'pending' });
                         renderEditor();
                     });
 
@@ -1302,10 +1588,11 @@ const UI = {
                     row.append(handle, stageInput);
 
                     const row2 = document.createElement('div');
-                    row2.className = 'flex items-center gap-1 mt-1';
-                    row2.append(dateInput, statusSel);
+                    row2.className = 'flex items-center gap-1 mt-1 flex-wrap';
+                    row2.append(dateWrap, endWrap);
 
                     item.append(insertBtn, row, row2, noteInput, delBtn);
+                    updateDateVisibility(); // ✅ 初次渲染時依現有關卡名稱套用收件/完成顯示規則與節點顏色
                     container.appendChild(item);
                 });
 
@@ -1314,7 +1601,7 @@ const UI = {
                 addBtn.className = 'text-xs text-indigo-500 hover:text-indigo-700 border border-dashed border-indigo-300 hover:border-indigo-500 rounded-lg px-3 py-1.5 w-full mt-1 transition';
                 addBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i>新增歷程節點（末尾）';
                 addBtn.addEventListener('click', () => {
-                    container._editHistory.push({ stage: '', time: Utils.todayString(), note: '', status: 'pending' });
+                    container._editHistory.push({ stage: '', time: Utils.todayString(), endTime: '', note: '', status: 'pending' });
                     renderEditor();
                 });
 
@@ -1331,7 +1618,8 @@ const UI = {
                     try {
                         doc.history   = JSON.parse(JSON.stringify(container._editHistory));
                         const last    = doc.history[doc.history.length - 1];
-                        if (last?.time) doc.updatedAt = last.time;
+                        // ✅ 更新時間優先採用最後一筆節點的「完成時間」，若尚未填寫完成時間則退回「收件時間」
+                        if (last?.endTime || last?.time) doc.updatedAt = last.endTime || last.time;
 
                         // ✅ 依最新歷程節點，回推並同步 currentStep / status，
                         //    確保總表的「當前關卡」「狀態」與時間軸最新節點一致
@@ -1410,11 +1698,11 @@ const UI = {
         updateStatsCardSelection() {
             const active = State.filterStatus || 'all';
             // 各篩選條件對應的 ring / border 顏色（與卡片本身的配色保持一致）
-            // 卡片順序（左→右）：總簽呈數 / 審核中 / 被駁回 / 用印中 / 用印結案
+            // 卡片順序（左→右）：總簽呈數 / 審核中 / 被暫緩 / 用印中 / 用印結案
             const ringColorMap = {
                 all:      'ring-blue-500 border-blue-500',    // 總簽呈數（藍）
                 pending:  'ring-amber-500 border-amber-500',  // 審核中（琥珀）
-                rejected: 'ring-red-500 border-red-500',      // 被駁回（紅）
+                rejected: 'ring-red-500 border-red-500',      // 被暫緩（紅）
                 stamping: 'ring-purple-500 border-purple-500',// 用印中（紫）
                 approved: 'ring-green-500 border-green-500',  // 用印結案（綠）
             };
@@ -1527,15 +1815,29 @@ const Utils = {
     /**
      * 將文件的 status 歸類為統計卡片 / 狀態篩選使用的分類。
      * 與 UI.Render._calcStats 共用同一套規則：
-     * 非「用印結案」「被駁回」「用印中」的所有狀態（包含「審核中」「送用印」等）皆歸為 'pending'。
+     * 非「用印結案」「被暫緩」「用印中」的所有狀態（包含「審核中」「送用印」等）皆歸為 'pending'。
      *
      * @param {string} status 文件的 status 欄位
      * @returns {'pending'|'approved'|'rejected'|'stamping'}
      */
+    /**
+     * 取得文件的「送件日期」（最一開始送審日）。
+     * 統一取自簽核歷程第一筆節點的收件時間（history[0].time），
+     * 與總表「送件時間」欄位、時間軸第一筆節點的日期來源一致。
+     * @param {Object} doc 文件資料
+     * @returns {string} 日期字串（YYYY-MM-DD），若無歷程則回傳空字串
+     */
+    getSubmitDate(doc) {
+        const history = Array.isArray(doc?.history) ? doc.history : [];
+        return history.length > 0 ? (history[0].time ?? '') : '';
+    },
+
     getStatusBucket(status) {
         const { APPROVED, REJECTED } = Config.TERMINAL_STATUSES;
         if (status === APPROVED)  return 'approved';
-        if (status === REJECTED)  return 'rejected';
+        // ✅「被暫緩」（結案）與「暫緩中」（時間軸最新節點為暫緩，尚未結案）
+        //    皆歸類為 rejected，一併計入「被暫緩」統計卡片與篩選。
+        if (status === REJECTED || status === Config.HOLD_STATUS) return 'rejected';
         // 「用印中」與「送用印」皆歸屬於 stamping 分類
         if (status === '用印中' || status === '送用印') return 'stamping';
         return 'pending';
@@ -1547,13 +1849,35 @@ const Utils = {
    ══════════════════════════════════════════════════ */
 const App = {
     /**
+     * 依「關卡名稱」與是否已填寫「完成時間」，自動判斷單一時間軸節點的視覺狀態。
+     * 不再提供手動狀態下拉選單，節點顏色改由此函式統一計算：
+     *   - 關卡為「被暫緩」→ 'error'（紅）
+     *   - 關卡為「暫緩」   → 'pending'（琥珀，暫緩中）
+     *   - 關卡為「用印結案」→ undefined（綠，視為已完成）
+     *   - 其餘一般關卡（含「送用印」）：已填完成時間 → undefined（綠）；未填 → 'pending'（琥珀，仍在等待）
+     * @param {Object} node 單一歷程節點 { stage, time, endTime, ... }
+     * @returns {'pending'|'error'|undefined}
+     */
+    deriveNodeStatus(node) {
+        const stage = (node?.stage ?? '').trim();
+        const { APPROVED, REJECTED } = Config.TERMINAL_STATUSES;
+        if (stage === REJECTED) return 'error';
+        if (stage === '暫緩') return 'pending';
+        if (stage === APPROVED) return undefined;
+        return node?.endTime ? undefined : 'pending';
+    },
+
+    /**
      * 依「簽核歷程」最後一筆節點，回推並同步 doc.currentStep 與 doc.status。
      * 確保總表顯示的「當前關卡」「狀態」與時間軸最新節點完全一致。
      *
      * 判斷規則（由上至下，符合第一個條件即回傳）：
      *  1. 最後節點 stage（去除「審核中」字尾後）為結案狀態
-     *     （Config.TERMINAL_STATUSES.APPROVED「用印結案」或 REJECTED「被駁回」）
+     *     （Config.TERMINAL_STATUSES.APPROVED「用印結案」或 REJECTED「被暫緩」）
      *       → currentStep = status = 該結案狀態文字
+     *  1.5 最後節點 stage（去除「審核中」字尾後）為「暫緩」（非結案，僅暫時擱置）
+     *       → currentStep = status = Config.HOLD_STATUS（「暫緩中」），
+     *         並於總表統計/篩選上一併歸入「被暫緩」分類
      *  2. 最後節點 stage（去除「審核中」字尾後）屬於 Config.STAGE_AS_STATUS
      *     （例如「送用印」）
      *       → currentStep = status = 該關卡名稱（「送用印」）
@@ -1578,10 +1902,18 @@ const App = {
 
         const { APPROVED, REJECTED } = Config.TERMINAL_STATUSES;
 
-        // 1. 結案狀態：用印結案 / 被駁回 → 當前關卡與狀態皆顯示為該結案文字
+        // 1. 結案狀態：用印結案 / 被暫緩 → 當前關卡與狀態皆顯示為該結案文字
         if (baseStage === APPROVED || baseStage === REJECTED) {
             doc.currentStep = baseStage;
             doc.status = baseStage;
+            return;
+        }
+
+        // 1.5 非結案的「暫緩」節點：當前關卡與狀態統一顯示為「暫緩中」，
+        //     並於統計/篩選上歸入「被暫緩」分類（見 Utils.getStatusBucket）。
+        if (baseStage === '暫緩') {
+            doc.currentStep = Config.HOLD_STATUS;
+            doc.status = Config.HOLD_STATUS;
             return;
         }
 
@@ -1806,7 +2138,7 @@ const App = {
             content: content || '無詳細說明',
             status: '審核中',
             updatedAt: submitDate,          // ✅ 使用管理員指定的送件日期
-            history: [{ time: submitDate, stage: `${currentStep}審核中`, note: '初次送審', status: 'pending' }],
+            history: [{ time: submitDate, endTime: '', stage: `${currentStep}審核中`, note: '初次送審', status: 'pending' }],
         };
 
         const btn = document.getElementById('submit-btn');
@@ -1858,9 +2190,9 @@ const App = {
     },
 
     /**
-     * 更新文件狀態（送下一關、核准結案、駁回、補正重送）
+     * 更新文件狀態（送下一關、核准結案、暫緩、補正重送）
      *
-     * @param {string} targetStatus 目標狀態字串：'審核中' | Config.TERMINAL_STATUSES.APPROVED（'用印結案'） | Config.TERMINAL_STATUSES.REJECTED（'被駁回'）
+     * @param {string} targetStatus 目標狀態字串：'審核中' | Config.TERMINAL_STATUSES.APPROVED（'用印結案'） | Config.TERMINAL_STATUSES.REJECTED（'被暫緩'）
      * @param {HTMLElement} triggerBtn 觸發操作的按鈕（用於切換 Loading 樣式）
      * @param {'normal'|'resubmit'} [panel='normal'] 目前顯示的操作面板。
      *   - 'normal'   : 一般審核面板（action-date / action-stage / action-note）
@@ -1898,7 +2230,7 @@ const App = {
         doc.history.push({
             time:   chosenDate,           // ✅ 正確使用從對應面板讀取的日期
             stage:  targetStatus,
-            note:   noteVal || (targetStatus === REJECTED ? '文件已駁回' : '已補正送審'),
+            note:   noteVal || (targetStatus === REJECTED ? '文件已暫緩' : '已補正送審'),
             status: targetStatus === REJECTED ? 'error' : 'success',
         });
 
