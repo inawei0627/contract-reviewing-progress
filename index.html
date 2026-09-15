@@ -46,13 +46,64 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-        /* ── backdrop-blur-sm（Modal 背景）── */
+        /* backdrop-blur-sm（Modal 背景）── */
         .backdrop-blur-sm { backdrop-filter: blur(4px); }
         /* ring-2 */
         .ring-2 {
             --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width,0px) var(--tw-ring-offset-color,#fff);
             --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width,0px)) var(--tw-ring-color,rgba(59,130,246,.5));
             box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow,0 0 #0000);
+        }
+
+        /* ── 方括號任意值補丁 ──────────────────────────────
+           本頁載入的是 Tailwind CSS 2.2.19「靜態預編譯」版本，
+           並非 JIT（Just-In-Time）模式，因此像 max-h-[92vh]、
+           -left-[9px] 這類「方括號任意值」class 不會有對應的實際樣式
+           （瀏覽器會忽略未知 class，等同沒有效果）。
+           下方手動補上這些 class 對應的真正 CSS，確保實際生效。 ── */
+        .-left-\[9px\] { left: -9px; }
+        .w-\[calc\(100\%-1rem\)\] { width: calc(100% - 1rem); }
+
+        /* ── 跳出視窗（Modal）固定寬高比例 ──────────────────────
+           需求：視窗寬／高比例需固定，不因使用者調整瀏覽器視窗大小而跑掉／變形。
+           改用 vw/vh（相對視窗尺寸）而非 Tailwind 固定 rem 級距（max-w-3xl 等），
+           讓視窗尺寸「等比例」隨螢幕縮放，同時設 min/max 避免極端螢幕下過窄或過寬。
+           詳情／編輯視窗改為「細長」版面並靠右顯示，方便同時檢視左側的簽呈清單。 ── */
+        .hye-modal-detail {
+            width: 30vw;
+            min-width: 380px;
+            max-width: 480px;
+            max-height: 92vh;
+        }
+        .hye-modal-detail-inner { max-height: 92vh; }
+        .hye-modal-add {
+            width: 42vw;
+            min-width: 320px;
+            max-width: 640px;
+            max-height: 90vh;
+        }
+
+        /* ── 簽呈詳情／編輯視窗：右側常駐顯示的上下捲軸 ──
+           使用 overflow-y-scroll（見對應 HTML）強制保留捲軸軌道空間，
+           並自訂樣式使其在各瀏覽器下清楚可見（而非細窄或自動隱藏的原生樣式）。*/
+        #detail-scroll-area {
+            scrollbar-width: auto;                 /* Firefox：使用一般寬度，避免過細不易點擊 */
+            scrollbar-color: var(--c-ink-300) var(--c-gray-100);
+        }
+        #detail-scroll-area::-webkit-scrollbar {
+            width: 12px;
+        }
+        #detail-scroll-area::-webkit-scrollbar-track {
+            background: var(--c-gray-100);
+            border-radius: 999px;
+        }
+        #detail-scroll-area::-webkit-scrollbar-thumb {
+            background-color: var(--c-ink-300);
+            border-radius: 999px;
+            border: 3px solid var(--c-gray-100);
+        }
+        #detail-scroll-area::-webkit-scrollbar-thumb:hover {
+            background-color: var(--c-ink-400);
         }
 
         /* ══════════════════════════════════════════════════════════
@@ -313,19 +364,24 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- 簽呈列表 -->
-        <div class="lg:col-span-2 space-y-6">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="p-5 border-b border-gray-100 space-y-4 bg-gray-50">
-                    <div class="flex justify-between items-center">
-                        <h2 class="font-bold text-gray-800 flex items-center">
-                            <i class="fa-solid fa-table-list mr-2 text-gray-500"></i> 簽呈進度總表
-                        </h2>
+    <!-- 簽呈列表（全寬，點選單一簽呈即以跳出視窗編輯，無需再滾動至頁面右下角） -->
+    <div class="space-y-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-5 border-b border-gray-100 space-y-4 bg-gray-50">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-bold text-gray-800 flex items-center">
+                        <i class="fa-solid fa-table-list mr-2 text-gray-500"></i> 簽呈進度總表
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <button id="add-doc-trigger-btn"
+                            class="hidden text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition shadow-sm items-center inline-flex">
+                            <i class="fa-solid fa-feather-pointed mr-1.5"></i> 新增簽呈
+                        </button>
                         <button id="refresh-btn" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
                             <i class="fa-solid fa-arrows-rotate mr-1"></i> 手動更新
                         </button>
                     </div>
+                </div>
                     <div class="relative">
                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
                         <input type="text" id="search-input" placeholder="輸入申請人、部門、主旨或內容關鍵字搜尋..."
@@ -393,75 +449,93 @@
                 </div>
             </div>
         </div>
+</main>
 
-        <!-- 右側面板 -->
-        <div class="space-y-6">
-            <!-- 新增簽呈表單（管理員專用） -->
-            <div id="admin-form-section" class="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-100 hidden">
-                <h2 class="font-bold text-gray-800 mb-4 flex items-center border-b pb-2">
-                    <i class="fa-solid fa-feather-pointed mr-2 text-indigo-500"></i> 新增簽呈 (管理員專用)
-                </h2>
-                <div id="add-doc-form" class="space-y-4">
+<!-- ───────────── 新增簽呈 Modal（管理員專用，點選「新增簽呈」開啟）───────────── -->
+<div id="add-doc-modal-overlay" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="hye-modal-add overflow-y-auto rounded-xl">
+        <div id="admin-form-section" class="relative bg-white p-6 rounded-xl shadow-xl border-2 border-indigo-100 hidden">
+            <button id="add-doc-close-btn" type="button" aria-label="關閉"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="font-bold text-gray-800 mb-4 flex items-center border-b pb-2 pr-8">
+                <i class="fa-solid fa-feather-pointed mr-2 text-indigo-500"></i> 新增簽呈 (管理員專用)
+            </h2>
+            <div id="add-doc-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">簽呈主旨</label>
+                    <input type="text" id="form-title" placeholder="例如：採購辦公室電腦三台"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">簽呈主旨</label>
-                        <input type="text" id="form-title" placeholder="例如：採購辦公室電腦三台"
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">申請人</label>
+                        <input type="text" id="form-applicant" placeholder="王大同"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">申請人</label>
-                            <input type="text" id="form-applicant" placeholder="王大同"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">申請部門</label>
-                            <input type="text" id="form-dept" placeholder="資訊部"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                        </div>
-                    </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
-                        <select id="form-current-step"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
-                            <option value="財務部" selected>財務部</option>
-                            <option value="法務">法務</option>
-                            <option value="採購部">採購部</option>
-                            <option value="送用印">送用印</option>
-                            <option value="副總">副總</option>
-                            <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
-                        </select>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">申請部門</label>
+                        <input type="text" id="form-dept" placeholder="資訊部"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">內容說明</label>
-                        <textarea id="form-content" rows="3" placeholder="請輸入簽呈詳細事由..."
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">
-                            送件日期
-                            <span class="text-gray-400 font-normal ml-1">（可往前回填，預設今日）</span>
-                        </label>
-                        <input type="date" id="form-submit-date"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <button id="submit-btn"
-                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
-                        <span class="btn-text"><i class="fa-solid fa-paper-plane mr-1"></i> 發布新簽呈到雲端</span>
-                    </button>
                 </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">當前關卡</label>
+                    <select id="form-current-step"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-indigo-500 text-gray-700 font-medium">
+                        <option value="財務部" selected>財務部</option>
+                        <option value="法務">法務</option>
+                        <option value="採購部">採購部</option>
+                        <option value="送用印">送用印</option>
+                        <option value="副總">副總</option>
+                        <option value="5樓(執行長.董事長)">5樓(執行長.董事長)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">內容說明</label>
+                    <textarea id="form-content" rows="3" placeholder="請輸入簽呈詳細事由..."
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                        送件日期
+                        <span class="text-gray-400 font-normal ml-1">（可往前回填，預設今日）</span>
+                    </label>
+                    <input type="date" id="form-submit-date"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:outline-none focus:border-indigo-500">
+                </div>
+                <button id="submit-btn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
+                    <span class="btn-text"><i class="fa-solid fa-paper-plane mr-1"></i> 發布新簽呈到雲端</span>
+                </button>
             </div>
+        </div>
+    </div>
+</div>
 
-            <!-- 簽呈詳情面板 -->
-            <div id="detail-section" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
-                <div class="flex justify-between items-start border-b pb-3 mb-4">
-                    <div>
-                        <span id="detail-id" class="text-xs font-mono text-gray-400">#DOC-001</span>
-                        <h3 id="detail-title" class="font-bold text-gray-800 text-base">簽呈主旨</h3>
-                    </div>
-                    <span id="detail-status-badge" class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">狀態</span>
+<!-- ───────────── 簽呈詳情／編輯 Modal（點選列表中任一簽呈即跳出，免捲動頁面）───────────── -->
+<div id="detail-modal-overlay" class="fixed inset-0 hidden items-center justify-end z-50 p-4 pointer-events-none">
+    <div class="hye-modal-detail pointer-events-auto">
+        <!-- ✅ 詳情視窗改為上下三段式版面：標題列與底部按鈕列固定不動，
+             中間的申請資訊＋時間軸內容獨立捲動，方便閱讀較長的簽核歷程。 -->
+        <div id="detail-section" class="relative bg-white rounded-xl shadow-xl border border-gray-200 hidden flex flex-col hye-modal-detail-inner">
+            <!-- 固定標題列 -->
+            <div class="flex justify-between items-start border-b p-6 pb-3 pr-14 shrink-0">
+                <div class="min-w-0 flex-1 pr-3">
+                    <span id="detail-id" class="text-xs font-mono text-gray-400">#DOC-001</span>
+                    <h3 id="detail-title" class="font-bold text-gray-800 text-base break-words">簽呈主旨</h3>
                 </div>
+                <span id="detail-status-badge" class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 shrink-0">狀態</span>
+            </div>
+            <button id="detail-close-btn" type="button" aria-label="關閉"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
 
+            <!-- 可捲動內容區 -->
+            <div id="detail-scroll-area" class="overflow-y-scroll flex-1 p-6 pt-4 pr-4">
                 <div class="text-xs text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg space-y-1">
                     <p><strong>申請人：</strong><span id="detail-applicant">--</span> (<span id="detail-dept">--</span>)</p>
                     <p><strong>事由：</strong><span id="detail-content">--</span></p>
@@ -470,10 +544,12 @@
                 <!-- 管理員操作區 -->
                 <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">簽核歷程時間軸</h4>
                 <div id="timelineContainer" class="relative border-l-2 border-gray-200 ml-2 space-y-4 pb-2"></div>
+            </div>
 
-                <!-- 刪除簽呈（管理員專用） -->
+            <!-- 固定底部按鈕列：刪除簽呈（管理員專用） -->
+            <div id="detail-footer" class="shrink-0 border-t p-4">
                 <button id="delete-doc-btn"
-                    class="hidden w-full mt-4 bg-white border border-red-300 hover:bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                    class="hidden w-full bg-white border border-red-300 hover:bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
                     <span class="btn-text flex items-center gap-1.5">
                         <i class="fa-solid fa-trash-can"></i> 刪除此簽呈
@@ -482,7 +558,7 @@
             </div>
         </div>
     </div>
-</main>
+</div>
 
 <!-- ───────────── 密碼 Modal ───────────── -->
 <div id="password-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
@@ -895,6 +971,37 @@ const UI = {
         },
     },
 
+    /* ── 跳出視窗（Modal）同步控制 ──────────────────────────
+     * 既有程式碼是以「切換內層面板的 hidden class」來決定
+     * 詳情/表單面板是否顯示（例如 renderDetail、updateAuthUI）。
+     * 為了把這些面板改為跳出視窗、同時完全不更動既有的顯示/隱藏
+     * 呼叫點，這裡改用 MutationObserver 監看內層面板的 class
+     * 變化，自動同步外層背景遮罩（overlay）的顯示狀態；
+     * 內層 hidden → 外層一併隱藏；內層顯示 → 外層以 flex 置中顯示。
+     */
+    Modal: {
+        _openCount: 0,
+
+        bind(innerId, overlayId) {
+            const inner   = document.getElementById(innerId);
+            const overlay = document.getElementById(overlayId);
+            if (!inner || !overlay) return;
+
+            const sync = () => {
+                const visible = !inner.classList.contains('hidden');
+                overlay.style.display = visible ? 'flex' : 'none';
+            };
+
+            new MutationObserver(sync).observe(inner, { attributes: true, attributeFilter: ['class'] });
+            sync(); // 初始狀態同步
+
+            // 點擊背景遮罩（非內容區域）即關閉視窗
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) inner.classList.add('hidden');
+            });
+        },
+    },
+
     /* ── DOM 渲染邏輯 ── */
     Render: {
         /**
@@ -1146,9 +1253,11 @@ const UI = {
             badge.textContent = doc.status ?? '';
             badge.className = `px-2 py-1 text-xs font-semibold rounded-full ${this._getStatusClass(doc.status)}`;
 
-            // ✅ 刪除按鈕僅在管理員模式下顯示
+            // ✅ 刪除按鈕僅在管理員模式下顯示；訪客模式一併隱藏整個底部固定列（含邊框），避免留下空白區塊
             const deleteBtn = document.getElementById('delete-doc-btn');
             if (deleteBtn) deleteBtn.classList.toggle('hidden', !State.isAdmin);
+            const detailFooter = document.getElementById('detail-footer');
+            if (detailFooter) detailFooter.classList.toggle('hidden', !State.isAdmin);
 
             if (State.isAdmin) {
                 // ── 管理員：切換為可編輯欄位（isNewDoc 時重建，避免殘留舊文件值）──
@@ -1210,14 +1319,14 @@ const UI = {
          * @param {Object} doc
          */
         _renderDetailEditableFields(doc) {
-            // ── 主旨：h3#detail-title → input ──
+            // ── 主旨：h3#detail-title → textarea（可換行，避免長標題被單行 input 裁切看不全）──
             const titleEl = document.getElementById('detail-title');
             if (titleEl) {
-                const inp = document.createElement('input');
-                inp.type = 'text';
+                const inp = document.createElement('textarea');
                 inp.id   = 'detail-title-input';
+                inp.rows = 2;
                 inp.value = doc.title ?? '';
-                inp.className = 'font-bold text-gray-800 text-base w-full border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-indigo-500 py-0.5';
+                inp.className = 'font-bold text-gray-800 text-base w-full border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-indigo-500 py-0.5 resize-none leading-snug';
                 inp.placeholder = '簽呈主旨';
                 titleEl.replaceWith(inp);
             }
@@ -1226,7 +1335,8 @@ const UI = {
             const infoBox = document.querySelector('#detail-section .bg-gray-50');
             if (infoBox) {
                 infoBox.innerHTML = '';   // 清除靜態 <p> 文字，重建為 input 群組
-                infoBox.className = 'text-xs mb-4 bg-indigo-50 border border-indigo-100 p-3 rounded-lg space-y-2';
+                // ✅ 改為橫向網格排列（寬螢幕 2 欄），節省垂直空間，減少捲動
+                infoBox.className = 'text-xs mb-4 bg-indigo-50 border border-indigo-100 p-3 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2';
 
                 const mkField = (labelText, id, value, placeholder, type = 'text') => {
                     const wrap  = document.createElement('div');
@@ -1247,7 +1357,7 @@ const UI = {
 
                 const mkTextarea = (labelText, id, value, placeholder) => {
                     const wrap  = document.createElement('div');
-                    wrap.className = 'flex items-start gap-2';
+                    wrap.className = 'flex items-start gap-2 sm:col-span-2';
                     const label = document.createElement('label');
                     label.htmlFor = id;
                     label.className = 'font-semibold text-gray-600 w-16 shrink-0 pt-0.5';
@@ -1366,7 +1476,8 @@ const UI = {
             if (!container) return;
 
             if (!State.isAdmin) {
-                // ── 訪客：純文字只讀 ──
+                // ── 訪客：純文字只讀（重設為直向時間軸樣式，避免沿用管理員編輯模式的網格 class）──
+                container.className = 'relative border-l-2 border-gray-200 ml-2 space-y-4 pb-2';
                 const history = Array.isArray(doc.history) ? doc.history : [];
                 if (history.length === 0) {
                     container.innerHTML = '<p class="text-gray-400 text-sm pl-2 py-4">尚無簽核歷程</p>';
@@ -1424,18 +1535,21 @@ const UI = {
 
             const renderEditor = () => {
                 container.innerHTML = '';
+                // ✅ 編輯模式改為「直線」垂直時間軸版面（與訪客唯讀模式視覺一致），
+                //    不再以並排網格卡片顯示，維持單欄由上到下閱讀順序。
+                container.className = 'relative border-l-2 border-gray-200 ml-3 space-y-1 pb-2';
 
                 const history = container._editHistory;
 
                 // ── 頂部提示列 ──
                 const hint = document.createElement('p');
-                hint.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-3 flex items-center gap-1';
-                hint.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> 編輯模式：可拖曳排序、修改欄位，完成後按「儲存歷程」';
+                hint.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-2 ml-4 flex items-center gap-1';
+                hint.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> 編輯模式：左側數字為簽核順序（由上至下），可拖曳排序、修改欄位，完成後按「儲存歷程」';
                 container.appendChild(hint);
 
                 if (history.length === 0) {
                     const empty = document.createElement('p');
-                    empty.className = 'text-gray-400 text-sm pl-2 py-2';
+                    empty.className = 'text-gray-400 text-sm pl-4 py-2';
                     empty.textContent = '尚無簽核歷程';
                     container.appendChild(empty);
                 }
@@ -1446,13 +1560,27 @@ const UI = {
                     const color = colorMap[App.deriveNodeStatus(node)] ?? 'bg-green-500';
 
                     const item = document.createElement('div');
-                    item.className = 'relative pb-5 border border-dashed border-gray-300 rounded-lg p-2 mb-2 bg-white group';
+                    // ✅ 直線時間軸的單一節點：左側留白對齊外層 border-l 時間線，
+                    //    節點之間以虛線分隔，取代原本各自獨立的卡片方塊。
+                    item.className = 'relative pl-6 pb-4 mb-2 border-b border-dashed border-gray-200 last:border-b-0 last:mb-0 group bg-white';
                     item.draggable = true;
                     item.dataset.idx = idx;
 
-                    // drag handle 顏色點
+                    // 時間軸圓點（對齊外層直線）
+                    const dot = document.createElement('span');
+                    dot.className = `absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-2 border-white ${color}`;
+                    item.appendChild(dot);
+
+                    // ✅ 順序徽章：直線版面中節點由上至下即代表順序，
+                    //    仍保留數字方便快速對照「第幾關」，拖曳排序後自動重新編號。
+                    //    改為隨內容排版顯示（非絕對定位），避免遮擋下方欄位。
+                    const orderBadge = document.createElement('span');
+                    orderBadge.className = 'text-[10px] font-bold text-gray-400 mr-1 shrink-0';
+                    orderBadge.textContent = `第${idx + 1}關`;
+
+                    // drag handle
                     const handle = document.createElement('div');
-                    handle.className = `w-3 h-3 rounded-full ${color} inline-block mr-2 cursor-grab active:cursor-grabbing`;
+                    handle.className = 'w-3 h-3 rounded-full bg-gray-300 inline-block mr-2 cursor-grab active:cursor-grabbing shrink-0';
                     handle.title = '拖曳排序';
 
                     // 關卡名稱（可編輯 input，帶下拉建議）
@@ -1497,7 +1625,7 @@ const UI = {
                     const refreshDot = () => {
                         const st = App.deriveNodeStatus(container._editHistory[idx]);
                         container._editHistory[idx].status = st;
-                        handle.className = `w-3 h-3 rounded-full ${colorMap[st] ?? 'bg-green-500'} inline-block mr-2 cursor-grab active:cursor-grabbing`;
+                        dot.className = `absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-2 border-white ${colorMap[st] ?? 'bg-green-500'}`;
                     };
 
                     // ✅ 「送用印」只需收件時間；「用印結案」只需完成時間；
@@ -1566,11 +1694,14 @@ const UI = {
 
                     const row = document.createElement('div');
                     row.className = 'flex items-center gap-1 flex-wrap';
-                    row.append(handle, stageInput);
+                    row.append(orderBadge, handle, stageInput);
 
                     const row2 = document.createElement('div');
                     row2.className = 'flex items-center gap-1 mt-1 flex-wrap';
                     row2.append(dateWrap, endWrap);
+
+                    // 刪除按鈕：直線版面中改為隨內容排列於節點右上角（相對於節點本身，而非卡片）
+                    delBtn.className = 'absolute top-0 right-0 text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition px-1';
 
                     item.append(insertBtn, row, row2, noteInput, delBtn);
                     updateDateVisibility(); // ✅ 初次渲染時依現有關卡名稱套用收件/完成顯示規則與節點顏色
@@ -1579,16 +1710,16 @@ const UI = {
 
                 // ── 末尾「新增節點」按鈕 ──
                 const addBtn = document.createElement('button');
-                addBtn.className = 'text-xs text-indigo-500 hover:text-indigo-700 border border-dashed border-indigo-300 hover:border-indigo-500 rounded-lg px-3 py-1.5 w-full mt-1 transition';
+                addBtn.className = 'ml-4 text-xs text-indigo-500 hover:text-indigo-700 border border-dashed border-indigo-300 hover:border-indigo-500 rounded-lg px-3 py-1.5 w-[calc(100%-1rem)] mt-1 transition';
                 addBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i>新增歷程節點（末尾）';
                 addBtn.addEventListener('click', () => {
                     container._editHistory.push({ stage: '', time: Utils.todayString(), endTime: '', note: '', status: 'pending' });
                     renderEditor();
                 });
 
-                // ── 儲存 / 放棄 按鈕列 ──
+                // ── 儲存 / 放棄 按鈕列（橫跨所有欄） ──
                 const btnRow = document.createElement('div');
-                btnRow.className = 'flex gap-2 mt-3';
+                btnRow.className = 'ml-4 flex gap-2 mt-2';
 
                 const saveBtn = document.createElement('button');
                 saveBtn.className = 'flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 rounded transition flex items-center justify-center gap-1';
@@ -1647,10 +1778,14 @@ const UI = {
         updateAuthUI() {
             const { isAdmin, currentSelectedIndex } = State;
             const formSection   = document.getElementById('admin-form-section');
+            const addDocBtn     = document.getElementById('add-doc-trigger-btn');
             const authBtn       = document.getElementById('auth-btn');
             const roleBadge     = document.getElementById('role-badge');
 
-            formSection.classList.toggle('hidden', !isAdmin);
+            // ✅ 「新增簽呈」改為跳出視窗：登入時僅顯示觸發按鈕，
+            //    不再自動展開表單；登出時強制關閉視窗。
+            if (addDocBtn) addDocBtn.classList.toggle('hidden', !isAdmin);
+            if (!isAdmin) formSection.classList.add('hidden');
             // ✅ 管理員登入時，確保送件日期欄位預設為今日
             if (isAdmin) {
                 const submitDateEl = document.getElementById('form-submit-date');
@@ -2347,6 +2482,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 刪除簽呈（詳情面板，管理員專用）
     document.getElementById('delete-doc-btn').addEventListener('click', () => App.deleteDocument());
+
+    /* ── 跳出視窗（Modal）綁定 ──────────────────────────────
+     * 「新增簽呈」與「簽呈詳情/編輯」面板本身仍以既有的 hidden
+     * class 控制顯示（沿用既有的 renderDetail / updateAuthUI 邏輯，
+     * 不更動任何資料流程），這裡只需監看該 class 的變化，
+     * 同步顯示／隱藏外層的跳出視窗背景遮罩，
+     * 使兩者一律以「跳出視窗」形式呈現，不必再捲動頁面。
+     */
+    UI.Modal.bind('admin-form-section', 'add-doc-modal-overlay');
+    UI.Modal.bind('detail-section', 'detail-modal-overlay');
+
+    // 「新增簽呈」觸發按鈕：開啟新增視窗
+    document.getElementById('add-doc-trigger-btn')?.addEventListener('click', () => {
+        document.getElementById('admin-form-section').classList.remove('hidden');
+        document.getElementById('form-title')?.focus();
+    });
+    // 新增視窗關閉按鈕
+    document.getElementById('add-doc-close-btn')?.addEventListener('click', () => {
+        document.getElementById('admin-form-section').classList.add('hidden');
+    });
+    // 詳情/編輯視窗關閉按鈕
+    document.getElementById('detail-close-btn')?.addEventListener('click', () => {
+        document.getElementById('detail-section').classList.add('hidden');
+        State.currentSelectedIndex = null;
+        UI.Render.renderList();
+    });
+
+    // 按 Esc 鍵關閉目前開啟的跳出視窗（新增簽呈 / 簽呈詳情）
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const addSection = document.getElementById('admin-form-section');
+        const detailSection2 = document.getElementById('detail-section');
+        if (addSection && !addSection.classList.contains('hidden')) {
+            addSection.classList.add('hidden');
+        } else if (detailSection2 && !detailSection2.classList.contains('hidden')) {
+            detailSection2.classList.add('hidden');
+            State.currentSelectedIndex = null;
+            UI.Render.renderList();
+        }
+    });
 
     // 初始載入資料
     App.loadDocuments();
