@@ -460,8 +460,13 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
             <h2 class="font-bold text-gray-800 mb-4 flex items-center border-b pb-2 pr-8">
-                <i class="fa-solid fa-feather-pointed mr-2 text-indigo-500"></i> 新增簽呈 (管理員專用)
+                <i id="add-doc-title-icon" class="fa-solid fa-feather-pointed mr-2 text-indigo-500"></i> <span id="add-doc-title-text">新增簽呈 (管理員專用)</span>
             </h2>
+            <p id="copy-hint" class="hidden text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 mb-4">
+                <i class="fa-regular fa-copy mr-1"></i>已帶入來源簽呈
+                <span id="copy-hint-id" class="font-mono"></span>
+                的內容，請修改後發布為新簽呈（簽核歷程將重新開始）。
+            </p>
             <div id="add-doc-form" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">簽呈主旨</label>
@@ -547,9 +552,13 @@
             </div>
 
             <!-- 固定底部按鈕列：刪除簽呈（管理員專用） -->
-            <div id="detail-footer" class="shrink-0 border-t p-4">
+            <div id="detail-footer" class="shrink-0 border-t p-4 flex gap-2">
+                <button id="copy-doc-btn" type="button"
+                    class="hidden flex-1 bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-600 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                    <i class="fa-regular fa-copy"></i> 複製此簽呈
+                </button>
                 <button id="delete-doc-btn"
-                    class="hidden w-full bg-white border border-red-300 hover:bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                    class="hidden flex-1 bg-white border border-red-300 hover:bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-circle-notch animate-spin btn-spinner"></i>
                     <span class="btn-text flex items-center gap-1.5">
                         <i class="fa-solid fa-trash-can"></i> 刪除此簽呈
@@ -1256,6 +1265,8 @@ const UI = {
             // ✅ 刪除按鈕僅在管理員模式下顯示；訪客模式一併隱藏整個底部固定列（含邊框），避免留下空白區塊
             const deleteBtn = document.getElementById('delete-doc-btn');
             if (deleteBtn) deleteBtn.classList.toggle('hidden', !State.isAdmin);
+            const copyBtn = document.getElementById('copy-doc-btn');
+            if (copyBtn) copyBtn.classList.toggle('hidden', !State.isAdmin);
             const detailFooter = document.getElementById('detail-footer');
             if (detailFooter) detailFooter.classList.toggle('hidden', !State.isAdmin);
 
@@ -2232,6 +2243,48 @@ const App = {
     },
 
     /**
+     * 將新增視窗切回「一般新增」或「複製」模式（僅影響標題與提示文字）
+     * @param {Object|null} srcDoc 來源簽呈；null 表示一般新增
+     */
+    _setAddModalMode(srcDoc = null) {
+        const isCopy = !!srcDoc;
+        document.getElementById('add-doc-title-text').textContent = isCopy ? '複製簽呈 (管理員專用)' : '新增簽呈 (管理員專用)';
+        document.getElementById('add-doc-title-icon').className = `fa-solid ${isCopy ? 'fa-copy' : 'fa-feather-pointed'} mr-2 text-indigo-500`;
+        document.getElementById('copy-hint').classList.toggle('hidden', !isCopy);
+        document.getElementById('copy-hint-id').textContent = isCopy ? `#ID-${srcDoc.id ?? ''}` : '';
+    },
+
+    /**
+     * 複製目前選取的簽呈：以其內容預先填入「新增簽呈」視窗，供管理員修改後發布為新簽呈。
+     * 僅複製主旨、申請人、部門、內容；關卡與送件日期重設為預設值，簽核歷程不複製。
+     */
+    copyDocument() {
+        if (State.currentSelectedIndex === null || !State.isAdmin) return;
+        const doc = State.filteredDocuments[State.currentSelectedIndex];
+        if (!doc) return;
+
+        // 先關閉詳情視窗，避免兩個視窗同時出現
+        document.getElementById('detail-section').classList.add('hidden');
+        State.currentSelectedIndex = null;
+        UI.Render.renderList();
+
+        // 預填欄位（用 .value 賦值，無 XSS 風險）
+        document.getElementById('form-title').value     = doc.title ?? '';
+        document.getElementById('form-applicant').value = doc.applicant ?? '';
+        document.getElementById('form-dept').value      = doc.dept ?? '';
+        // 「無詳細說明」是新增時的預設佔位字，複製時不帶入
+        document.getElementById('form-content').value   = (doc.content && doc.content !== '無詳細說明') ? doc.content : '';
+        document.getElementById('form-current-step').value = Config.WORKFLOW_STAGES[0];
+        document.getElementById('form-submit-date').value  = Utils.todayString();
+
+        this._setAddModalMode(doc);
+        document.getElementById('admin-form-section').classList.remove('hidden');
+        const titleEl = document.getElementById('form-title');
+        titleEl?.focus();
+        titleEl?.select();
+    },
+
+    /**
      * 新增簽呈到雲端
      */
     async addDocument() {
@@ -2268,6 +2321,7 @@ const App = {
             });
             document.getElementById('form-current-step').value = Config.WORKFLOW_STAGES[0];
             document.getElementById('form-submit-date').value = Utils.todayString(); // ✅ 清空後重設為今日
+            this._setAddModalMode(null);
             await this.loadDocuments();
         } catch (err) {
             console.error('[App.addDocument]', err);
@@ -2483,6 +2537,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 刪除簽呈（詳情面板，管理員專用）
     document.getElementById('delete-doc-btn').addEventListener('click', () => App.deleteDocument());
 
+    // 複製簽呈（詳情面板，管理員專用）
+    document.getElementById('copy-doc-btn').addEventListener('click', () => App.copyDocument());
+
     /* ── 跳出視窗（Modal）綁定 ──────────────────────────────
      * 「新增簽呈」與「簽呈詳情/編輯」面板本身仍以既有的 hidden
      * class 控制顯示（沿用既有的 renderDetail / updateAuthUI 邏輯，
@@ -2495,6 +2552,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 「新增簽呈」觸發按鈕：開啟新增視窗
     document.getElementById('add-doc-trigger-btn')?.addEventListener('click', () => {
+        App._setAddModalMode(null);
         document.getElementById('admin-form-section').classList.remove('hidden');
         document.getElementById('form-title')?.focus();
     });
